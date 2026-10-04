@@ -4,58 +4,78 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Catálogo Life Ateliê</title>
-  <meta name="description" content="Bolsas artesanais em couro legítimo, feitas à mão em Minas Gerais. Escolha a sua e peça pelo WhatsApp.">
-  <meta name="theme-color" content="#F6F1EA">
+  <meta name="description" content="Bolsas artesanais em couro. Escolha a sua e fale com a gente pelo WhatsApp.">
+  <meta name="theme-color" content="#FAF7F2">
 
-  <!-- Prévia do link no WhatsApp -->
+  <!-- Prévia do link no WhatsApp (a imagem precisa de endereço completo) -->
   <meta property="og:title" content="Catálogo Life Ateliê">
-  <meta property="og:description" content="Bolsas artesanais em couro legítimo. Escolha a sua e peça pelo WhatsApp.">
+  <meta property="og:description" content="Bolsas artesanais em couro. Escolha a sua e fale com a gente pelo WhatsApp.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="img/capa.jpg">
+  <meta property="og:url" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/">
+  <meta property="og:image" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/img/capa.jpg">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/estilo.css">
+  <link rel="stylesheet" href="css/tema.css">
+  <link rel="stylesheet" href="css/catalogo.css">
 </head>
 <body>
   <a class="pular" href="#vitrine">Pular para os produtos</a>
 
   <header class="topo">
     <p class="marca">Life Ateliê</p>
-    <p class="slogan">Bolsas artesanais em couro legítimo</p>
+    <p class="slogan">Catálogo</p>
   </header>
 
-  <nav class="filtros" aria-label="Filtrar por modelo">
-    <div class="filtros-lista" id="filtros" role="list"></div>
-  </nav>
+  <div class="barra" id="barra">
+    <label class="busca" id="busca-caixa" hidden>
+      <span class="sr">Buscar</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+      <input type="search" id="busca" placeholder="Buscar bolsa ou cor" autocomplete="off">
+    </label>
+    <nav class="filtros" aria-label="Categorias"><div class="filtros-lista" id="filtros"></div></nav>
+  </div>
 
   <main id="vitrine" class="vitrine">
     <p class="contagem" id="contagem" aria-live="polite"></p>
-    <ul class="grade" id="grade"></ul>
+    <ul class="grade" id="grade" aria-busy="true">
+      <li class="esqueleto"></li><li class="esqueleto"></li><li class="esqueleto"></li><li class="esqueleto"></li>
+    </ul>
   </main>
 
   <footer class="rodape">
-    <p>Feito à mão em Minas Gerais</p>
+    <p class="marca">Life Ateliê</p>
     <p id="rodape-links"></p>
   </footer>
 
-  <!-- Detalhe do produto -->
-  <dialog class="detalhe" id="detalhe" aria-labelledby="detalhe-nome">
-    <button class="fechar" type="button" id="fechar" aria-label="Fechar">×</button>
-    <div class="galeria" id="galeria"></div>
-    <div class="galeria-pontos" id="galeria-pontos" aria-hidden="true"></div>
-    <div class="detalhe-info">
-      <h2 id="detalhe-nome"></h2>
-      <p class="detalhe-cor" id="detalhe-cor"></p>
-      <p class="detalhe-preco" id="detalhe-preco"></p>
-      <p class="detalhe-desc" id="detalhe-desc"></p>
-      <ul class="detalhe-lista" id="detalhe-lista"></ul>
-      <a class="botao-whats" id="detalhe-whats" target="_blank" rel="noopener"></a>
+  <!-- Página do produto -->
+  <dialog class="produto" id="produto" aria-labelledby="produto-nome">
+    <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+    <div class="galeria" id="galeria" aria-label="Fotos. Toque para ampliar."></div>
+    <div class="miniaturas" id="miniaturas"></div>
+    <div class="produto-info">
+      <p class="produto-cat" id="produto-cat"></p>
+      <h1 id="produto-nome"></h1>
+      <p class="produto-preco" id="produto-preco"></p>
+      <fieldset class="variacoes" id="variacoes" hidden>
+        <legend id="variacoes-legenda">Escolha uma opção</legend>
+        <div class="variacoes-lista" id="variacoes-lista"></div>
+      </fieldset>
+      <p class="aviso-esgotado" id="aviso-esgotado" hidden>Esgotada no momento — fale com a gente para encomendar.</p>
+      <a class="botao botao-whats botao-interesse" id="botao-interesse" target="_blank" rel="noopener"></a>
+      <div class="produto-texto" id="produto-texto"></div>
     </div>
   </dialog>
 
-  <script src="js/produtos.js"></script>
+  <!-- Foto ampliada -->
+  <dialog class="zoom" id="zoom" aria-label="Foto ampliada">
+    <button class="fechar" type="button" data-fechar-zoom aria-label="Fechar foto">×</button>
+    <div class="zoom-fotos" id="zoom-fotos"></div>
+  </dialog>
+
+  <script src="js/config.js"></script>
+  <script src="js/comum.js"></script>
   <script src="js/catalogo.js"></script>
 </body>
 </html>

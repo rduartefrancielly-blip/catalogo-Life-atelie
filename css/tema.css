@@ -1,0 +1,48 @@
+/* =====================================================================
+   IDENTIDADE VISUAL — PROVISÓRIA
+   Ainda não foi possível acessar lifeatelie.com.br para copiar as cores e
+   fontes exatas da marca. Quando o acesso for liberado, só estas variáveis
+   (e o link das fontes no <head>) precisam ser trocadas.
+   ===================================================================== */
+:root {
+  --fundo: #FAF7F2;
+  --cartao: #FFFFFF;
+  --texto: #2B2118;
+  --texto-suave: #6E5E50;
+  --destaque: #8A5A3B;
+  --destaque-escuro: #5E3B25;
+  --linha: #E6DDD1;
+  --foto-fundo: #F0E9DF;
+  --whats: #1F7A4D;
+  --perigo: #A33A2B;
+  --raio: 12px;
+  --titulo: "Cormorant Garamond", Georgia, serif;
+  --corpo: "Montserrat", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--fundo); color: var(--texto);
+  font-family: var(--corpo); font-size: 16px; line-height: 1.5;
+}
+img { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.pular { position: absolute; left: -999px; top: 8px; background: var(--texto); color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 50; }
+.pular:focus { left: 16px; }
+
+.marca { font-family: var(--titulo); font-weight: 600; letter-spacing: .04em; margin: 0; }
+
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent;
+  background: var(--texto); color: #fff; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.botao-sec { background: var(--cartao); color: var(--texto); border-color: var(--linha); }
+.botao-whats { background: var(--whats); }
+.botao-perigo { background: var(--cartao); color: var(--perigo); border-color: currentColor; }
+.botao:disabled, .botao[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.botao svg { width: 22px; height: 22px; fill: currentColor; flex: none; }
