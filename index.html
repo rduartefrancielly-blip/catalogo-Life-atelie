@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catálogo Life Ateliê</title>
+  <meta name="description" content="Bolsas artesanais em couro legítimo, feitas à mão em Minas Gerais. Escolha a sua e peça pelo WhatsApp.">
+  <meta name="theme-color" content="#F6F1EA">
+
+  <!-- Prévia do link no WhatsApp -->
+  <meta property="og:title" content="Catálogo Life Ateliê">
+  <meta property="og:description" content="Bolsas artesanais em couro legítimo. Escolha a sua e peça pelo WhatsApp.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="img/capa.jpg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+  <a class="pular" href="#vitrine">Pular para os produtos</a>
+
+  <header class="topo">
+    <p class="marca">Life Ateliê</p>
+    <p class="slogan">Bolsas artesanais em couro legítimo</p>
+  </header>
+
+  <nav class="filtros" aria-label="Filtrar por modelo">
+    <div class="filtros-lista" id="filtros" role="list"></div>
+  </nav>
+
+  <main id="vitrine" class="vitrine">
+    <p class="contagem" id="contagem" aria-live="polite"></p>
+    <ul class="grade" id="grade"></ul>
+  </main>
+
+  <footer class="rodape">
+    <p>Feito à mão em Minas Gerais</p>
+    <p id="rodape-links"></p>
+  </footer>
+
+  <!-- Detalhe do produto -->
+  <dialog class="detalhe" id="detalhe" aria-labelledby="detalhe-nome">
+    <button class="fechar" type="button" id="fechar" aria-label="Fechar">×</button>
+    <div class="galeria" id="galeria"></div>
+    <div class="galeria-pontos" id="galeria-pontos" aria-hidden="true"></div>
+    <div class="detalhe-info">
+      <h2 id="detalhe-nome"></h2>
+      <p class="detalhe-cor" id="detalhe-cor"></p>
+      <p class="detalhe-preco" id="detalhe-preco"></p>
+      <p class="detalhe-desc" id="detalhe-desc"></p>
+      <ul class="detalhe-lista" id="detalhe-lista"></ul>
+      <a class="botao-whats" id="detalhe-whats" target="_blank" rel="noopener"></a>
+    </div>
+  </dialog>
+
+  <script src="js/produtos.js"></script>
+  <script src="js/catalogo.js"></script>
+</body>
+</html>
