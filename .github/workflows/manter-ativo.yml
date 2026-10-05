@@ -23,5 +23,8 @@ jobs:
             http*) ;;
             *) echo "js/config.js ainda não configurado — nada a fazer."; exit 0 ;;
           esac
-          curl -fsS "$URL/rest/v1/config?select=id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > /dev/null
+          case "$KEY" in
+            eyJ*) curl -fsS "$URL/rest/v1/config?select=id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > /dev/null ;;
+            *)    curl -fsS "$URL/rest/v1/config?select=id" -H "apikey: $KEY" > /dev/null ;;
+          esac
           echo "Banco consultado com sucesso."

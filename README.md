@@ -41,7 +41,7 @@ O filtro **Com pendências** mostra os produtos com dados faltando.
    insert into admins (email) values ('seu-email@exemplo.com');
    ```
 4. **Segurança:** *Authentication → Sign In / Providers* → desligue **Allow new users to sign up**.
-5. **Ligar o catálogo ao banco:** em *Project Settings → API*, copie a **Project URL** e a **anon public key** para [`js/config.js`](js/config.js) (ou envie para a Claude fazer isso).
+5. **Ligar o catálogo ao banco:** em *Project Settings → API Keys*, copie a **Publishable key** (`sb_publishable_…`, ou a antiga *anon public*), e em *Project Settings → Data API* copie a **Project URL**. Cole as duas em [`js/config.js`](js/config.js) (ou envie para a Claude fazer isso). **Nunca** use a *secret key* / *service_role*.
 6. **Publicar o link:** no GitHub, *Settings → Pages → Build and deployment → Deploy from a branch*, escolha a branch principal e a pasta `/ (root)` → **Save**.
 
 ## Custos

@@ -10,9 +10,10 @@ window.Life = (function () {
 
   // Leitura pública via REST (sem biblioteca, para o catálogo carregar rápido)
   async function rest(caminho) {
-    const r = await fetch(`${cfg.supabaseUrl}/rest/v1/${caminho}`, {
-      headers: { apikey: cfg.supabaseAnonKey, Authorization: `Bearer ${cfg.supabaseAnonKey}` },
-    });
+    const headers = { apikey: cfg.supabaseAnonKey };
+    // Chave antiga (anon, formato JWT) também vai como Bearer; a nova (sb_publishable_…) só no apikey
+    if (cfg.supabaseAnonKey.startsWith("eyJ")) headers.Authorization = `Bearer ${cfg.supabaseAnonKey}`;
+    const r = await fetch(`${cfg.supabaseUrl}/rest/v1/${caminho}`, { headers });
     if (!r.ok) throw new Error(`Erro ${r.status} ao carregar ${caminho}`);
     return r.json();
   }
