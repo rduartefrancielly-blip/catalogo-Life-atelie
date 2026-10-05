@@ -48,8 +48,10 @@
   async function entrar() {
     const { data, error } = await sb.from("admins").select("email");
     if (error || !data || !data.length) {
+      const { data: u } = await sb.auth.getUser();
       await sb.auth.signOut();
-      return mostrarLogin("Esta conta não tem permissão de administradora. Peça para incluir seu e-mail na tabela admins.");
+      const detalhe = error ? `Erro do banco: ${error.message}` : `O e-mail "${u?.user?.email || ""}" não está na tabela admins.`;
+      return mostrarLogin(`Esta conta não tem permissão de administradora. ${detalhe}`);
     }
     $("tela-login").hidden = true;
     $("painel").hidden = false;

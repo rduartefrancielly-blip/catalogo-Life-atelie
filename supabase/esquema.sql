@@ -14,7 +14,7 @@ create or replace function public.eh_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.admins
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    where lower(trim(email)) = lower(trim(coalesce(auth.jwt() ->> 'email', '')))
   );
 $$;
 
@@ -66,6 +66,15 @@ create table if not exists public.config (
   mostrar_esgotados boolean not null default true
 );
 insert into public.config (id) values (1) on conflict do nothing;
+
+-- Permissões básicas da API (alguns projetos novos não as dão por padrão).
+-- Quem pode ver/alterar cada linha continua decidido pelas regras abaixo.
+grant usage on schema public to anon, authenticated;
+grant select on public.produtos, public.config to anon, authenticated;
+grant select on public.admins to authenticated;
+grant insert, update, delete on public.produtos to authenticated;
+grant update on public.config to authenticated;
+grant execute on function public.eh_admin() to anon, authenticated;
 
 -- Segurança: clientes só leem; só admins alteram -----------------------
 alter table public.admins   enable row level security;
