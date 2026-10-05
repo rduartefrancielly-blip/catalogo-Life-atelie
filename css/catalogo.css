@@ -60,7 +60,16 @@
 
 .esqueleto { aspect-ratio: 4 / 6; border-radius: var(--raio); background: linear-gradient(100deg, var(--foto-fundo) 40%, #fff 50%, var(--foto-fundo) 60%) 0 0 / 300% 100%; animation: brilho 1.4s infinite linear; }
 @keyframes brilho { to { background-position: -150% 0; } }
-.mensagem { grid-column: 1 / -1; text-align: center; color: var(--texto-suave); padding: 40px 8px; }
+.mensagem { text-align: center; color: var(--texto-suave); padding: 40px 8px; margin: 0; }
+
+/* Seções por modelo */
+.grupo { margin: 0 0 30px; scroll-margin-top: 120px; }
+.grupo-titulo {
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; padding-bottom: 6px;
+  font-family: var(--titulo); font-size: 1.7rem; font-weight: 600; line-height: 1.1;
+  border-bottom: 1px solid var(--linha);
+}
+.grupo-titulo small { font-family: var(--corpo); font-size: .8rem; font-weight: 400; color: var(--texto-suave); }
 
 .rodape { text-align: center; padding: 36px 16px 48px; color: var(--texto-suave); font-size: .9rem; }
 .rodape .marca { font-size: 1.5rem; color: var(--texto); }

@@ -7,6 +7,7 @@
   let produtos = [];
   let loja = {};
   let filtro = "Todos";
+  const colacao = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
   let termo = "";
 
   // ---------- Avisos ----------
@@ -172,7 +173,8 @@
 
   function desenharLista() {
     const lista = produtos.filter(FILTROS[filtro]).filter((p) =>
-      !termo || [p.nome, p.categoria, p.codigo].join(" ").toLowerCase().includes(termo));
+      !termo || [p.nome, p.categoria, p.codigo].join(" ").toLowerCase().includes(termo))
+      .sort((a, b) => colacao.compare(a.nome, b.nome)); // ordem alfabética, como no catálogo
     const disp = produtos.filter((p) => p.visivel && disponivel(p)).length;
     $("adm-resumo").textContent = `${produtos.length} produtos · ${disp} disponíveis no catálogo · mostrando ${lista.length}`;
     $("lista").innerHTML = lista.length ? lista.map(itemHtml).join("") : '<li class="resumo">Nenhum produto aqui.</li>';

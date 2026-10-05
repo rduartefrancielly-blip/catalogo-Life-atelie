@@ -30,12 +30,14 @@ Entre em **admin.html** com seu e-mail e senha. Tudo que você salvar aparece na
 Quantidade **em branco** significa "não controlo estoque desta peça". Ela aparece como disponível.
 O filtro **Com pendências** mostra os produtos com dados faltando.
 
+No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética**. Para tirar as esgotadas da vitrine: aba **Loja** → desmarque "Mostrar peças esgotadas".
+
 ---
 
 ## Configuração inicial (uma vez só, ~15 min)
 
 1. **Banco de dados:** crie uma conta grátis em [supabase.com](https://supabase.com) → *New project* (região São Paulo).
-2. No projeto: **SQL Editor → New query**, cole o conteúdo de [`supabase/esquema.sql`](supabase/esquema.sql) e toque em **Run**. Depois faça o mesmo com [`supabase/produtos-iniciais.sql`](supabase/produtos-iniciais.sql) (carrega os 30 produtos do site).
+2. No projeto: **SQL Editor → New query**, cole o conteúdo de [`supabase/esquema.sql`](supabase/esquema.sql) e toque em **Run**. Depois faça o mesmo com [`supabase/produtos-iniciais.sql`](supabase/produtos-iniciais.sql) (carrega os 130 produtos do site).
 3. **Sua conta de admin:** *Authentication → Users → Add user* (e-mail + senha, marque *Auto Confirm*). Depois, no SQL Editor:
    ```sql
    insert into admins (email) values ('seu-email@exemplo.com');
@@ -59,16 +61,16 @@ O filtro **Com pendências** mostra os produtos com dados faltando.
 
 ## Pendências da importação (dados que o site não tem)
 
-Importado de `lifeatelie.com.br/products.json` em 04/10/2026. Nada foi inventado. Abaixo está o que falta ou merece conferência:
+Importado das 5 páginas de `lifeatelie.com.br/products.json` em 04–05/10/2026: **130 produtos e 594 fotos**. Nada foi inventado. Os textos das páginas 2 a 5 foram extraídos automaticamente e conferidos de duas formas: revisão independente texto a texto e checagem palavra por palavra. Nas duas, nada foi perdido nem acrescentado. Preço, código, fotos e disponibilidade batem 100% com o site.
 
-- **Quantidade em estoque:** o site não informa. As 26 peças disponíveis entraram como "não informada" e as 4 indisponíveis no site entraram com 0 (Luiza Vermelho Cereja, Carmem Azul Marinho, Carmem Café & Preto, Bia Vermelho Carmim).
-- **Pode haver mais produtos:** a lista do site mostra até 30 itens por página e vieram exatamente 30. Confira em `https://www.lifeatelie.com.br/products.json?page=2`.
-- **Tags personalizáveis:** sem medidas no site. O "preço de" cadastrado no site (R$ 60,00) é **menor** que o preço (R$ 69,00), por isso não foi usado.
-- **Tag Café e Tag Jabuticaba** usam a **mesma foto** no site.
+O que falta ou merece conferência:
+
+- **Quantidade em estoque:** o site não informa. As 86 peças disponíveis entraram como "não informada"; as 44 indisponíveis no site entraram com 0 ("Esgotado"). Toda a Isis P, 7 de 8 Clara e 7 de 8 Luiza estão esgotadas no site.
+- **Tags personalizáveis:** sem medidas no site. Tag **Azul Marinho** e Tag **Preta** estão com preço **R$ 0,00** no site, por isso entraram "sem preço" ("Consulte o valor"). Em várias tags o "preço de" (R$ 60,00) é **menor** que o preço (R$ 69,00), por isso não foi usado.
+- **Fotos repetidas no site:** Tag Café = Tag Jabuticaba; Helena G e Helena M Verde Musgo compartilham as 2 primeiras fotos.
 - **Bolsa Bia:** as medidas do site não incluem profundidade.
-- **Helena G e Helena M Verde Musgo** compartilham as duas primeiras fotos.
-- **Textos copiados como estão no site:** "Puxador em maio" e "conforto e conforto" (Luiza), "A bolsa Carmem Estruturada, …" (Carmem). Única correção feita: "vermelhacom" → "vermelha com" (Alice).
-- **Identidade visual:** o site não pôde ser acessado para copiar cores, fontes e logo. As cores e fontes atuais são provisórias e ficam todas em [`css/tema.css`](css/tema.css).
+- **Textos copiados como estão no site**, inclusive erros de digitação. Exemplos: "Puxador em maio" e "conforto e conforto" (Luiza). Única correção feita: "vermelhacom" → "vermelha com" (Alice, página 1).
+- **Identidade visual:** o site não pôde ser acessado para copiar cores, fontes e logo. As atuais são provisórias e ficam todas em [`css/tema.css`](css/tema.css).
 
 ## Estrutura
 
@@ -77,6 +79,7 @@ index.html, admin.html   páginas do catálogo e da área administrativa
 css/tema.css             cores e fontes da marca (troque aqui)
 js/config.js             conexão com o banco
 supabase/*.sql           banco de dados e carga inicial
-ferramentas/             dados extraídos do site e gerador do SQL inicial
+ferramentas/site/        páginas products.json originais da loja (2 a 5)
+ferramentas/             extrator, dados da página 1 e gerador dos arquivos SQL
 vendor/supabase.js       biblioteca oficial do Supabase (v2.117.2)
 ```

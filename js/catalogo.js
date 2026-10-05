@@ -14,13 +14,19 @@
   let categoria = "Todas";
   let termo = "";
 
+  const SEM_CATEGORIA = "Outros";
+  const nomeCategoria = (p) => (p.categoria || "").trim() || SEM_CATEGORIA;
+  const colacao = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
+  // "Outros" (sem categoria) sempre por último
+  const ordemAlfabetica = (a, b) => (a === SEM_CATEGORIA) - (b === SEM_CATEGORIA) || colacao.compare(a, b);
+
   // ---------- Dados ----------
   function aplicar(dados) {
     loja = { ...loja, ...(dados.loja || {}) };
     produtos = (dados.produtos || [])
       .filter((p) => loja.mostrar_esgotados || disponivel(p))
-      // disponíveis primeiro, depois destaques, depois a ordem definida no admin
-      .sort((a, b) => (disponivel(b) - disponivel(a)) || (b.destaque - a.destaque) || (a.ordem - b.ordem));
+      // ordem alfabética: por modelo (categoria) e, dentro dele, pelo nome
+      .sort((a, b) => ordemAlfabetica(nomeCategoria(a), nomeCategoria(b)) || ordemAlfabetica(a.nome, b.nome));
     desenharRodape();
     desenharFiltros();
     desenharGrade();
@@ -53,13 +59,13 @@
 
   function mensagem(texto) {
     grade.setAttribute("aria-busy", "false");
-    grade.innerHTML = `<li class="mensagem">${esc(texto)}</li>`;
+    grade.innerHTML = `<p class="mensagem">${esc(texto)}</p>`;
     contagem.textContent = "";
   }
 
   // ---------- Filtros e busca ----------
   const normalizar = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const categorias = () => [...new Set(produtos.map((p) => (p.categoria || "").trim()).filter(Boolean))];
+  const categorias = () => [...new Set(produtos.map((p) => (p.categoria || "").trim()).filter(Boolean))].sort(ordemAlfabetica);
 
   function desenharFiltros() {
     const cats = categorias();
@@ -113,13 +119,28 @@
       return;
     }
 
-    grade.innerHTML = lista.map((p, i) => {
-      const disp = disponivel(p);
-      const cores = temVariacoes(p) ? variacoes(p).filter(varDisponivel).map((v) => v.nome).filter(Boolean) : [];
-      const selo = !disp ? '<span class="selo selo-esgotado">Esgotado</span>' : p.destaque ? '<span class="selo">Destaque</span>' : "";
-      return `<li class="card${disp ? "" : " esgotado"}">
+    // Uma seção por modelo, em ordem alfabética (a lista já vem ordenada)
+    const grupos = new Map();
+    lista.forEach((p) => {
+      const c = nomeCategoria(p);
+      if (!grupos.has(c)) grupos.set(c, []);
+      grupos.get(c).push(p);
+    });
+    let n0 = 0; // as primeiras fotos carregam na hora; as outras quando aparecem na tela
+    grade.innerHTML = [...grupos].map(([cat, itens], g) => `
+      <section class="grupo" aria-labelledby="grupo-${g}">
+        <h2 class="grupo-titulo" id="grupo-${g}">${esc(cat)} <small>${itens.length}</small></h2>
+        <ul class="grade">${itens.map((p) => cardHtml(p, n0++ < 4)).join("")}</ul>
+      </section>`).join("");
+  }
+
+  function cardHtml(p, prioridade) {
+    const disp = disponivel(p);
+    const cores = temVariacoes(p) ? variacoes(p).filter(varDisponivel).map((v) => v.nome).filter(Boolean) : [];
+    const selo = !disp ? '<span class="selo selo-esgotado">Esgotado</span>' : p.destaque ? '<span class="selo">Destaque</span>' : "";
+    return `<li class="card${disp ? "" : " esgotado"}">
         <button type="button" class="card-botao" data-id="${esc(p.id)}" aria-label="${esc(p.nome)}${disp ? "" : " (esgotado)"}. Ver detalhes">
-          <div class="card-foto">${fotoHtml(p, 0, i < 4 ? "eager" : "lazy", true)}${selo}</div>
+          <div class="card-foto">${fotoHtml(p, 0, prioridade ? "eager" : "lazy", true)}${selo}</div>
           <div class="card-info">
             <p class="card-nome">${esc(p.nome)}</p>
             ${cores.length > 1 ? `<p class="card-var">${cores.length} opções</p>` : cores.length === 1 ? `<p class="card-var">${esc(cores[0])}</p>` : ""}
@@ -127,7 +148,6 @@
           </div>
         </button>
       </li>`;
-    }).join("");
   }
   grade.addEventListener("click", (e) => {
     const b = e.target.closest("[data-id]");
