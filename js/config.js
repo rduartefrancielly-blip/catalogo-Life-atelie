@@ -3,6 +3,6 @@
 // Essa chave é pública por natureza: ela só permite o que as regras do
 // banco liberam (clientes leem; só admins alteram).
 window.LIFE_CONFIG = {
-  supabaseUrl: "COLE_AQUI_A_PROJECT_URL",
-  supabaseAnonKey: "COLE_AQUI_A_ANON_KEY",
+  supabaseUrl: "https://bmkghbbkxtqaeyyetqdk.supabase.co",
+  supabaseAnonKey: "sb_publishable_GeZbE8DeulNTT60pFDKpTA_GJHUjlwy",
 };
