@@ -1,0 +1,27 @@
+# O plano gratuito do Supabase pausa o projeto após 7 dias sem acesso.
+# Esta rotina faz uma leitura simples por dia para mantê-lo ativo.
+name: Manter banco ativo
+
+on:
+  schedule:
+    - cron: "17 11 * * *" # todo dia às 08:17 (horário de Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar o banco
+        run: |
+          URL=$(sed -n 's/.*supabaseUrl: *"\([^"]*\)".*/\1/p' js/config.js)
+          KEY=$(sed -n 's/.*supabaseAnonKey: *"\([^"]*\)".*/\1/p' js/config.js)
+          case "$URL" in
+            http*) ;;
+            *) echo "js/config.js ainda não configurado — nada a fazer."; exit 0 ;;
+          esac
+          curl -fsS "$URL/rest/v1/config?select=id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > /dev/null
+          echo "Banco consultado com sucesso."

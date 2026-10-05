@@ -1,5 +1,5 @@
 (function () {
-  const { moeda, esc, configurado, rest, variacoes, temVariacoes, varDisponivel, disponivel, precoDe, linkWhats } = window.Life;
+  const { moeda, esc, configurado, rest, variacoes, temVariacoes, varDisponivel, disponivel, precoDe, miniatura, linkWhats } = window.Life;
 
   const $ = (id) => document.getElementById(id);
   const grade = $("grade"), filtros = $("filtros"), contagem = $("contagem"), busca = $("busca");
@@ -81,11 +81,12 @@
   busca.addEventListener("input", () => { termo = normalizar(busca.value.trim()); desenharGrade(); });
 
   // ---------- Grade ----------
-  function fotoHtml(p, i, carregar) {
+  // leve = versão reduzida (cards e miniaturas); a galeria usa a foto inteira
+  function fotoHtml(p, i, carregar, leve) {
     const f = (p.fotos || [])[i];
     if (!f || !f.url) return `<div class="sem-foto" role="img" aria-label="${esc(p.nome)}">${esc(p.nome)}</div>`;
     const alt = f.alt || (i ? `${p.nome} – foto ${i + 1}` : p.nome);
-    return `<img src="${esc(f.url)}" alt="${esc(alt)}" loading="${carregar}" decoding="async">`;
+    return `<img src="${esc(leve ? miniatura(f) : f.url)}" alt="${esc(alt)}" loading="${carregar}" decoding="async">`;
   }
 
   function precoHtml(p, v) {
@@ -118,7 +119,7 @@
       const selo = !disp ? '<span class="selo selo-esgotado">Esgotado</span>' : p.destaque ? '<span class="selo">Destaque</span>' : "";
       return `<li class="card${disp ? "" : " esgotado"}">
         <button type="button" class="card-botao" data-id="${esc(p.id)}" aria-label="${esc(p.nome)}${disp ? "" : " (esgotado)"}. Ver detalhes">
-          <div class="card-foto">${fotoHtml(p, 0, i < 4 ? "eager" : "lazy")}${selo}</div>
+          <div class="card-foto">${fotoHtml(p, 0, i < 4 ? "eager" : "lazy", true)}${selo}</div>
           <div class="card-info">
             <p class="card-nome">${esc(p.nome)}</p>
             ${cores.length > 1 ? `<p class="card-var">${cores.length} opções</p>` : cores.length === 1 ? `<p class="card-var">${esc(cores[0])}</p>` : ""}
@@ -147,7 +148,7 @@
       .join("");
     $("galeria").scrollLeft = 0;
     $("miniaturas").innerHTML = fotos.length > 1
-      ? fotos.map((_, i) => `<button type="button" data-mini="${i}" aria-label="Foto ${i + 1}" aria-current="${i === 0}">${fotoHtml(p, i, "lazy")}</button>`).join("")
+      ? fotos.map((_, i) => `<button type="button" data-mini="${i}" aria-label="Foto ${i + 1}" aria-current="${i === 0}">${fotoHtml(p, i, "lazy", true)}</button>`).join("")
       : "";
 
     $("produto-cat").textContent = p.categoria || "";

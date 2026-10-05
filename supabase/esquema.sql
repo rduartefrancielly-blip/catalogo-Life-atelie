@@ -23,6 +23,7 @@ create table if not exists public.produtos (
   id              uuid primary key default gen_random_uuid(),
   nome            text not null,
   categoria       text,
+  codigo          text,                   -- código/SKU interno
   preco           numeric(10,2),          -- null = "Consulte o valor"
   preco_antigo    numeric(10,2),          -- preço "de" (riscado)
   descricao       text,
@@ -41,6 +42,9 @@ create table if not exists public.produtos (
   criado_em       timestamptz not null default now(),
   atualizado_em   timestamptz not null default now()
 );
+
+-- Para quem já tinha criado a tabela antes deste campo existir
+alter table public.produtos add column if not exists codigo text;
 
 create or replace function public.tocar_atualizado() returns trigger
 language plpgsql as $$

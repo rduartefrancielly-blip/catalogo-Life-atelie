@@ -25,11 +25,19 @@ window.Life = (function () {
   const disponivel = (p) => variacoes(p).some(varDisponivel);
   const precoDe = (p, v) => (v && v.preco != null && v.preco !== "" ? Number(v.preco) : p.preco == null ? null : Number(p.preco));
 
+  // Versão leve da foto para cards e miniaturas
+  function miniatura(f) {
+    if (!f) return "";
+    if (f.mini) return f.mini;
+    if (/^https:\/\/cdn\.shopify\.com\//.test(f.url)) return f.url + (f.url.includes("?") ? "&" : "?") + "width=600";
+    return f.url;
+  }
+
   function linkWhats(numero, p, v) {
     const variacao = v && (v.nome || "").trim() ? ` — ${v.nome.trim()}` : "";
     const msg = `Olá! Vi no catálogo e tenho interesse na *${p.nome}${variacao}*. Pode me passar mais informações?`;
     return `https://wa.me/${String(numero || "").replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
   }
 
-  return { cfg, moeda, esc, configurado, rest, variacoes, temVariacoes, varDisponivel, disponivel, precoDe, linkWhats };
+  return { cfg, moeda, esc, configurado, rest, variacoes, temVariacoes, varDisponivel, disponivel, precoDe, miniatura, linkWhats };
 })();
