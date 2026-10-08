@@ -24,6 +24,7 @@ Entre em **admin.html** com seu e-mail e senha. Tudo que você salvar aparece na
 | Cadastrar cores do mesmo modelo | No produto → **+ Adicionar cor / variação** (cada uma com sua quantidade) |
 | Produto novo | **+ Novo** |
 | Apagar um produto | No produto → **Excluir** (não tem volta; prefira Ocultar) |
+| Alinhar os preços com o site | Aba **Loja** → **Comparar com o site** → confira a lista → **Aplicar** |
 | Mudar WhatsApp / Instagram | Aba **Loja** |
 | Esconder as esgotadas | Aba **Loja** → desmarque "Mostrar peças esgotadas" |
 

@@ -66,6 +66,26 @@
         <button class="botao" type="submit">Salvar</button>
       </form>
 
+      <div class="caixa" id="caixa-precos">
+        <h2>Preços do site</h2>
+        <p>Compara os preços do catálogo com os preços atuais de lifeatelie.com.br. Nada muda até você confirmar.</p>
+        <button class="botao" type="button" id="precos-buscar">Comparar com o site</button>
+        <div id="precos-manual" hidden>
+          <p class="aviso-caixa">O site não deixou buscar os preços direto daqui. Sem problema, faça assim:</p>
+          <ol class="passos">
+            <li>Abra <a href="https://www.lifeatelie.com.br/products.json?limit=250" target="_blank" rel="noopener">esta página do site</a> (é um texto comprido).</li>
+            <li>Salve a página: no computador, <strong>Ctrl + S</strong> (Mac: <strong>Cmd + S</strong>).</li>
+            <li>Volte aqui e escolha o arquivo salvo:</li>
+          </ol>
+          <label class="botao botao-sec arquivo">
+            Escolher arquivo do site
+            <input type="file" id="precos-arquivo" accept=".json,application/json,text/plain" multiple>
+          </label>
+        </div>
+        <p class="progresso" id="precos-status" aria-live="polite"></p>
+        <div id="precos-resultado"></div>
+      </div>
+
       <div class="caixa">
         <h2>Fotos do site</h2>
         <p>As fotos importadas ainda estão hospedadas no site (Shopify). Copie para o seu banco para que continuem aparecendo mesmo se o site sair do ar.</p>

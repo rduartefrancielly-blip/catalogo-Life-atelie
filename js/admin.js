@@ -523,6 +523,149 @@
     aviso("Dados da loja salvos ✓");
   });
 
+  // ---------- Preços do site ----------
+  const SITE_LOJA = "https://www.lifeatelie.com.br";
+
+  // Busca a lista pública de produtos da loja (pode ser bloqueada pelo site)
+  async function buscarProdutosDoSite() {
+    const todos = [];
+    for (let pagina = 1; pagina <= 20; pagina++) {
+      const r = await fetch(`${SITE_LOJA}/products.json?limit=250&page=${pagina}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const lote = (await r.json()).products || [];
+      todos.push(...lote);
+      if (lote.length < 250) break;
+    }
+    return todos;
+  }
+
+  const handleDe = (url) => {
+    const m = String(url || "").match(/\/products\/([^/?#]+)/);
+    return m ? decodeURIComponent(m[1]).toLowerCase() : null;
+  };
+  const numOuNulo = (v) => (v == null || v === "" ? null : Number(v));
+
+  // Preço do site: o menor preço maior que zero entre as variações; "preço de" só se for maior que o preço
+  function precosDoSite(s) {
+    const vs = s.variants || [];
+    const validos = vs.map((v) => Number(v.price)).filter((n) => n > 0);
+    if (!validos.length) return null;
+    const preco = Math.min(...validos);
+    const v = vs.find((x) => Number(x.price) === preco) || {};
+    const antigo = numOuNulo(v.compare_at_price);
+    return { preco, preco_antigo: antigo != null && antigo > preco ? antigo : null };
+  }
+
+  function comparar(doSite) {
+    const porHandle = new Map(doSite.filter((s) => s && s.handle).map((s) => [String(s.handle).toLowerCase(), s]));
+    const r = { mudancas: [], iguais: 0, foraDoSite: [], semPrecoNoSite: [], soNoSite: [], semLink: 0 };
+    for (const p of produtos) {
+      const h = handleDe(p.origem_url);
+      if (!h) { r.semLink++; continue; }
+      const s = porHandle.get(h);
+      if (!s) { r.foraDoSite.push(p); continue; }
+      porHandle.delete(h);
+      const novo = precosDoSite(s);
+      if (!novo) { r.semPrecoNoSite.push(p); continue; }
+      const atual = { preco: numOuNulo(p.preco), preco_antigo: numOuNulo(p.preco_antigo) };
+      if (atual.preco === novo.preco && atual.preco_antigo === novo.preco_antigo) r.iguais++;
+      else r.mudancas.push({ p, atual, novo });
+    }
+    r.soNoSite = [...porHandle.values()];
+    r.mudancas.sort((a, b) => colacao.compare(a.p.nome, b.p.nome));
+    return r;
+  }
+
+  const valor = (v) => (v == null ? "sem preço" : moeda.format(v));
+  let ultimaComparacao = null;
+
+  function mostrarComparacao(r) {
+    ultimaComparacao = r;
+    const lista = (itens, fn) => `<ul>${itens.map(fn).join("")}</ul>`;
+    const mud = r.mudancas.length;
+    let html = `<div class="comparacao">
+      <p><strong>${mud ? `${mud} ${mud === 1 ? "produto com preço diferente" : "produtos com preço diferente"} do site.` : "Todos os preços já estão iguais aos do site ✓"}</strong>
+      ${r.iguais ? `<br>${r.iguais} já estão iguais.` : ""}</p>`;
+    if (mud) {
+      html += `<h3>O que vai mudar</h3>` + lista(r.mudancas, (m) => {
+        const linhas = [];
+        if (m.atual.preco !== m.novo.preco) linhas.push(`Preço: <span class="de">${valor(m.atual.preco)}</span><span class="para">${valor(m.novo.preco)}</span>`);
+        if (m.atual.preco_antigo !== m.novo.preco_antigo) linhas.push(`Preço "de": <span class="de">${m.atual.preco_antigo == null ? "nenhum" : valor(m.atual.preco_antigo)}</span><span class="para">${m.novo.preco_antigo == null ? "nenhum" : valor(m.novo.preco_antigo)}</span>`);
+        return `<li><strong>${esc(m.p.nome)}</strong><br>${linhas.join("<br>")}</li>`;
+      });
+      html += `<button type="button" class="botao" id="precos-aplicar">Aplicar ${mud} ${mud === 1 ? "alteração" : "alterações"}</button>`;
+    }
+    const detalhe = (titulo, itens, fn) => itens.length ? `<details><summary>${titulo} (${itens.length})</summary>${lista(itens, fn)}</details>` : "";
+    html += detalhe("Com preço R$ 0,00 no site — não alterados", r.semPrecoNoSite, (p) => `<li>${esc(p.nome)}</li>`);
+    html += detalhe("No catálogo, mas não encontrados no site", r.foraDoSite, (p) => `<li>${esc(p.nome)}</li>`);
+    html += detalhe("No site, mas ainda não estão no catálogo", r.soNoSite, (s) => `<li>${esc(s.title)} — ${valor(precosDoSite(s)?.preco ?? null)}</li>`);
+    html += "</div>";
+    $("precos-resultado").innerHTML = html;
+  }
+
+  async function compararCom(doSite) {
+    if (!doSite.length) {
+      $("precos-status").textContent = "Não achei produtos nesse arquivo. Confira se é a página do link acima.";
+      return;
+    }
+    $("precos-status").textContent = `${doSite.length} produtos lidos do site.`;
+    mostrarComparacao(comparar(doSite));
+  }
+
+  $("precos-buscar").addEventListener("click", async (e) => {
+    const botao = e.currentTarget;
+    botao.disabled = true;
+    $("precos-resultado").innerHTML = "";
+    $("precos-status").textContent = "Buscando preços no site…";
+    try {
+      await compararCom(await buscarProdutosDoSite());
+      $("precos-manual").hidden = true;
+    } catch (_) {
+      // Normalmente o site bloqueia leitura vinda de outro endereço: segue pelo arquivo
+      $("precos-status").textContent = "";
+      $("precos-manual").hidden = false;
+    }
+    botao.disabled = false;
+  });
+
+  $("precos-arquivo").addEventListener("change", async (e) => {
+    const arquivos = [...e.target.files];
+    e.target.value = "";
+    $("precos-resultado").innerHTML = "";
+    const doSite = [];
+    for (const arq of arquivos) {
+      try {
+        const dados = JSON.parse(await arq.text());
+        doSite.push(...(Array.isArray(dados) ? dados : dados.products || []));
+      } catch (_) {
+        $("precos-status").textContent = `Não consegui ler "${arq.name}". Salve a página do link acima de novo e tente outra vez.`;
+        return;
+      }
+    }
+    compararCom(doSite);
+  });
+
+  $("precos-resultado").addEventListener("click", async (e) => {
+    if (e.target.id !== "precos-aplicar" || !ultimaComparacao) return;
+    const botao = e.target;
+    const { mudancas } = ultimaComparacao;
+    if (!confirm(`Atualizar o preço de ${mudancas.length} produto(s) para o valor do site?`)) return;
+    botao.disabled = true;
+    let feitas = 0;
+    for (const m of mudancas) {
+      $("precos-status").textContent = `Atualizando ${feitas + 1} de ${mudancas.length}…`;
+      if (await salvarCampos(m.p.id, { preco: m.novo.preco, preco_antigo: m.novo.preco_antigo })) feitas++;
+    }
+    desenharLista();
+    desenharFiltros();
+    $("precos-resultado").innerHTML = "";
+    ultimaComparacao = null;
+    $("precos-status").textContent = feitas === mudancas.length
+      ? `Pronto! ${feitas} ${feitas === 1 ? "preço atualizado" : "preços atualizados"} ✓ O catálogo já mostra os valores novos.`
+      : `${feitas} de ${mudancas.length} preços atualizados. Os outros deram erro — tente "Comparar com o site" de novo.`;
+    aviso(`${feitas} ${feitas === 1 ? "preço atualizado" : "preços atualizados"}`);
+  });
+
   // Copia para o nosso armazenamento as fotos que ainda estão no site
   $("copiar-fotos").addEventListener("click", async (e) => {
     const botao = e.target;

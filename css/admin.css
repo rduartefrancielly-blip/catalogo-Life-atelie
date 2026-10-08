@@ -103,3 +103,19 @@ section[role=tabpanel] { max-width: 760px; margin: 0 auto; padding: 16px; }
 
 .aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 100; max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 999px; background: var(--texto); color: #fff; font-size: .92rem; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
 .aviso.erro-aviso { background: var(--perigo); }
+
+/* Preços do site */
+.aviso-caixa { background: #FCEBD2; color: #5C3708; padding: 10px 12px; border-radius: 10px; }
+.passos { margin: 0 0 14px; padding-left: 20px; font-size: .92rem; }
+.passos li { margin-bottom: 6px; }
+.passos a { color: var(--destaque-escuro); }
+.comparacao { margin-top: 14px; }
+.comparacao h3 { font-size: 1rem; margin: 16px 0 8px; font-family: var(--corpo); }
+.comparacao ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.comparacao li { padding: 10px 12px; border: 1px solid var(--linha); border-radius: 10px; font-size: .9rem; }
+.comparacao .de { color: var(--texto-suave); text-decoration: line-through; margin-right: 6px; }
+.comparacao .para { font-weight: 600; }
+.comparacao details { margin-top: 10px; font-size: .9rem; }
+.comparacao summary { cursor: pointer; padding: 8px 0; color: var(--texto-suave); }
+.comparacao details li { padding: 6px 10px; }
+.comparacao .botao { width: 100%; margin-top: 14px; }
