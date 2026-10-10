@@ -33,6 +33,15 @@ O filtro **Com pendências** mostra os produtos com dados faltando.
 
 No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética**. Para tirar as esgotadas da vitrine: aba **Loja** → desmarque "Mostrar peças esgotadas".
 
+### Atalho na tela de início
+
+O admin pode ficar na tela do celular como um app (ícone escuro **"LA ADMIN"**, nome **Life Admin**):
+
+- **Android (Chrome):** abra o `admin.html` → menu **⋮** → **Instalar app** (ou **Adicionar à tela inicial**).
+- **iPhone (Safari):** abra o `admin.html` → botão **Compartilhar** (quadrado com seta) → **Adicionar à Tela de Início**.
+
+Na primeira vez em que abrir pelo atalho, entre com e-mail e senha. Nas próximas, você já entra direto.
+
 ---
 
 ## Configuração inicial (uma vez só, ~15 min)
