@@ -66,12 +66,13 @@
 
   // ---------- Abas ----------
   function abrirAba(qual) {
-    ["produtos", "loja"].forEach((a) => {
+    ["produtos", "estoque", "loja"].forEach((a) => {
       $(`aba-${a}`).setAttribute("aria-selected", String(a === qual));
       $(`sec-${a}`).hidden = a !== qual;
     });
   }
   $("aba-produtos").addEventListener("click", () => abrirAba("produtos"));
+  $("aba-estoque").addEventListener("click", () => abrirAba("estoque"));
   $("aba-loja").addEventListener("click", () => abrirAba("loja"));
 
   // ---------- Dados ----------
@@ -521,6 +522,149 @@
     loja = { ...loja, ...dados };
     $("loja-whats").value = dados.whatsapp || "";
     aviso("Dados da loja salvos ✓");
+  });
+
+  // ---------- Estoque por lista (PDF ou texto) ----------
+  const base = (c) => new URL(c, document.baseURI).href;
+
+  // Extrai o texto do PDF linha a linha (junta os pedaços que estão na mesma altura da página)
+  async function textoDoPdf(arquivo) {
+    const pdfjs = await import(base("vendor/pdfjs/pdf.min.mjs"));
+    pdfjs.GlobalWorkerOptions.workerSrc = base("vendor/pdfjs/pdf.worker.min.mjs");
+    const pdf = await pdfjs.getDocument({ data: await arquivo.arrayBuffer(), cMapUrl: base("vendor/pdfjs/cmaps/"), cMapPacked: true }).promise;
+    const linhas = [];
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const pagina = await pdf.getPage(n);
+      const { items } = await pagina.getTextContent();
+      const pedacos = items.filter((it) => it.str && it.str.trim())
+        .map((it) => ({ x: it.transform[4], y: it.transform[5], h: Math.abs(it.transform[3]) || 10, s: it.str }))
+        .sort((a, b) => b.y - a.y || a.x - b.x);
+      let atual = null;
+      for (const p of pedacos) {
+        if (!atual || Math.abs(atual.y - p.y) > Math.max(2, p.h * 0.4)) {
+          atual = { y: p.y, partes: [] };
+          linhas.push(atual);
+        }
+        atual.partes.push(p);
+      }
+    }
+    return linhas.map((l) => l.partes.sort((a, b) => a.x - b.x).map((p) => p.s.trim()).join("  ")).join("\n");
+  }
+
+  const nomeComVariacao = (p, i) => {
+    const v = variacoes(p)[i];
+    return v && (v.nome || "").trim() ? `${p.nome} — ${v.nome.trim()}` : p.nome;
+  };
+  const qtdTexto = (q) => (q == null ? "não informada" : String(q));
+  let leituraAtual = null;
+
+  const MOTIVOS = {
+    sem_produto: () => "não achei essa peça no catálogo",
+    ambiguo: (l) => `pode ser mais de uma peça: ${l.opcoes.map((p) => p.nome).join(" / ")}`,
+    sem_quantidade: (l) => `achei "${l.produto.nome}", mas não a quantidade`,
+    sem_variacao: (l) => `achei "${l.produto.nome}", mas não qual cor/variação`,
+  };
+
+  function lerListaDeEstoque() {
+    const texto = $("lista-texto").value;
+    if (!texto.trim()) {
+      $("lista-status").textContent = "Escolha o PDF ou cole o texto da lista primeiro.";
+      return;
+    }
+    const { linhas, itens } = window.LifeEstoque.lerLista(texto, produtos);
+    const mudancas = [], iguais = [];
+    for (const it of itens) {
+      const atual = variacoes(it.produto)[it.variacao]?.quantidade ?? null;
+      (atual === it.quantidade ? iguais : mudancas).push({ ...it, atual });
+    }
+    const naLista = new Set(itens.map((it) => it.produto.id));
+    const ausentes = produtos.filter((p) => !naLista.has(p.id));
+    const problemas = linhas.filter((l) => MOTIVOS[l.status]);
+    leituraAtual = { mudancas, ausentes };
+    mudancas.sort((a, b) => colacao.compare(a.produto.nome, b.produto.nome));
+
+    const li = (conteudo) => `<li>${conteudo}</li>`;
+    const detalhes = (titulo, itensHtml, aberto) => itensHtml.length
+      ? `<details${aberto ? " open" : ""}><summary>${titulo} (${itensHtml.length})</summary><ul>${itensHtml.join("")}</ul></details>` : "";
+    const reconhecidas = mudancas.length + iguais.length;
+
+    let html = `<div class="caixa comparacao">
+      <p><strong>${reconhecidas} ${reconhecidas === 1 ? "peça reconhecida" : "peças reconhecidas"} na lista.</strong>
+      ${mudancas.length ? `${mudancas.length} ${mudancas.length === 1 ? "muda" : "mudam"} de quantidade` : "Nenhuma muda de quantidade"}${iguais.length ? `, ${iguais.length} já ${iguais.length === 1 ? "está certa" : "estão certas"}` : ""}.
+      ${problemas.length ? `<br>${problemas.length} ${problemas.length === 1 ? "linha não foi entendida" : "linhas não foram entendidas"} (veja abaixo).` : ""}</p>`;
+    if (mudancas.length) {
+      html += `<h3>O que vai mudar</h3><ul>${mudancas.map((m, i) => `<li><label class="lista-item">
+          <input type="checkbox" data-mudanca="${i}" checked>
+          <span><strong>${esc(nomeComVariacao(m.produto, m.variacao))}</strong><br>
+          Estoque: <span class="de">${qtdTexto(m.atual)}</span><span class="para">${m.quantidade}</span>
+          <span class="origem">Na lista: "${esc(m.linhas.join(" + "))}"</span></span></label></li>`).join("")}</ul>`;
+    }
+    html += detalhes("Linhas que não entendi — confira e ajuste à mão", problemas.map((l) =>
+      li(`"${esc(l.texto)}"<span class="motivo">${esc(MOTIVOS[l.status](l))}</span>`)), true);
+    html += detalhes("Já estão com a quantidade certa", iguais.map((m) => li(`${esc(nomeComVariacao(m.produto, m.variacao))}: ${m.quantidade}`)));
+    if (ausentes.length) {
+      html += detalhes("Peças do catálogo que não estão na lista", ausentes.map((p) => li(esc(p.nome))));
+      html += `<label class="interruptor"><input type="checkbox" id="lista-zerar">
+        <span>Marcar essas ${ausentes.length} peças como esgotadas (estoque 0)</span></label>`;
+    }
+    if (mudancas.length || ausentes.length) html += `<button type="button" class="botao" id="lista-aplicar">Aplicar alterações</button>`;
+    html += "</div>";
+    $("lista-resultado").innerHTML = html;
+    $("lista-status").textContent = "";
+  }
+
+  $("lista-ler").addEventListener("click", lerListaDeEstoque);
+
+  $("lista-arquivo").addEventListener("change", async (e) => {
+    const arq = e.target.files[0];
+    e.target.value = "";
+    if (!arq) return;
+    $("lista-resultado").innerHTML = "";
+    $("lista-status").textContent = `Lendo "${arq.name}"…`;
+    try {
+      const pdf = /\.pdf$/i.test(arq.name) || arq.type === "application/pdf";
+      const texto = pdf ? await textoDoPdf(arq) : await arq.text();
+      if (!texto.trim()) {
+        $("lista-status").textContent = "Não achei texto nesse PDF. Se for uma foto ou digitalização, cole o texto da lista no campo abaixo.";
+        return;
+      }
+      $("lista-texto").value = texto; // mostra o que foi lido (dá para corrigir e ler de novo)
+      lerListaDeEstoque();
+    } catch (err) {
+      $("lista-status").textContent = `Não consegui ler esse arquivo (${err.message || err}). Abra o PDF, copie o texto e cole no campo abaixo.`;
+    }
+  });
+
+  $("lista-resultado").addEventListener("click", async (e) => {
+    if (e.target.id !== "lista-aplicar" || !leituraAtual) return;
+    const marcadas = [...document.querySelectorAll("[data-mudanca]")].filter((c) => c.checked).map((c) => leituraAtual.mudancas[Number(c.dataset.mudanca)]);
+    const zerar = $("lista-zerar")?.checked
+      ? leituraAtual.ausentes.flatMap((p) => variacoes(p).map((v, i) => ({ produto: p, variacao: i, quantidade: 0, atual: v.quantidade ?? null }))).filter((m) => m.atual !== 0)
+      : [];
+    const todas = [...marcadas, ...zerar];
+    if (!todas.length) return aviso("Nada marcado para alterar.");
+    if (!confirm(`Atualizar o estoque de ${todas.length} item(ns)?`)) return;
+
+    e.target.disabled = true;
+    // Agrupa por produto (um produto com várias variações vira uma gravação só)
+    const porProduto = new Map();
+    for (const m of todas) {
+      if (!porProduto.has(m.produto.id)) porProduto.set(m.produto.id, variacoes(m.produto).map((v) => ({ ...v })));
+      porProduto.get(m.produto.id)[m.variacao].quantidade = m.quantidade;
+    }
+    let feitas = 0, n = 0;
+    for (const [id, vars] of porProduto) {
+      $("lista-status").textContent = `Atualizando ${++n} de ${porProduto.size}…`;
+      if (await salvarCampos(id, { variacoes: vars })) feitas++;
+    }
+    leituraAtual = null;
+    $("lista-resultado").innerHTML = "";
+    desenharLista();
+    desenharFiltros();
+    $("lista-status").textContent = feitas === porProduto.size
+      ? `Pronto! Estoque de ${feitas} ${feitas === 1 ? "peça atualizado" : "peças atualizado"} ✓ O catálogo já mostra as quantidades novas.`
+      : `${feitas} de ${porProduto.size} peças atualizadas. As outras deram erro — leia a lista de novo e aplique outra vez.`;
+    aviso("Estoque atualizado");
   });
 
   // ---------- Preços do site ----------

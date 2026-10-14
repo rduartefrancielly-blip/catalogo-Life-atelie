@@ -119,3 +119,10 @@ section[role=tabpanel] { max-width: 760px; margin: 0 auto; padding: 16px; }
 .comparacao summary { cursor: pointer; padding: 8px 0; color: var(--texto-suave); }
 .comparacao details li { padding: 6px 10px; }
 .comparacao .botao { width: 100%; margin-top: 14px; }
+
+/* Estoque por lista */
+.lista-item { display: flex; gap: 10px; align-items: flex-start; }
+.lista-item input[type=checkbox] { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--texto); flex: none; }
+.lista-item .origem { display: block; font-size: .78rem; color: var(--texto-suave); margin-top: 2px; }
+.motivo { display: block; font-size: .8rem; color: #7A4A0B; margin-top: 2px; }
+.comparacao details[open] summary { color: var(--texto); font-weight: 600; }

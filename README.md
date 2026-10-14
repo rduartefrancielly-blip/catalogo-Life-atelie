@@ -24,6 +24,7 @@ Entre em **admin.html** com seu e-mail e senha. Tudo que você salvar aparece na
 | Cadastrar cores do mesmo modelo | No produto → **+ Adicionar cor / variação** (cada uma com sua quantidade) |
 | Produto novo | **+ Novo** |
 | Apagar um produto | No produto → **Excluir** (não tem volta; prefira Ocultar) |
+| Atualizar o estoque pela lista (PDF) | Aba **Estoque** → **Escolher PDF da lista** (ou cole o texto) → confira a prévia → **Aplicar alterações** |
 | Alinhar os preços com o site | Aba **Loja** → **Comparar com o site** → confira a lista → **Aplicar** |
 | Mudar WhatsApp / Instagram | Aba **Loja** |
 | Esconder as esgotadas | Aba **Loja** → desmarque "Mostrar peças esgotadas" |
@@ -32,6 +33,15 @@ Quantidade **em branco** significa "não controlo estoque desta peça". Ela apar
 O filtro **Com pendências** mostra os produtos com dados faltando.
 
 No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética**. Para tirar as esgotadas da vitrine: aba **Loja** → desmarque "Mostrar peças esgotadas".
+
+### Estoque pela lista (PDF)
+
+Na aba **Estoque**, escolha o PDF da lista de estoque ou cole o texto dela. O catálogo reconhece cada peça pelo **código** (ex.: `BLSP08`) ou pelo **modelo + cor** (aceita "preta/preto", abreviações como "vm cereja", "v. militar", "az marinho", "off", e listas separadas por título de modelo, como "CARMEM" e embaixo "Sela 2").
+
+- Antes de gravar, ele mostra **o que vai mudar** (quantidade antiga → nova), e dá para desmarcar qualquer item.
+- Linhas que ele não tem certeza (ex.: "Sara preta", que pode ser a P ou a G) aparecem em **"Linhas que não entendi"**. Ele nunca chuta.
+- Opcional: marcar como esgotadas (0) as peças do catálogo que **não aparecem** na lista.
+- PDF que é foto ou digitalização não tem texto. Nesse caso, copie o texto e cole no campo.
 
 ### Atalho na tela de início
 
