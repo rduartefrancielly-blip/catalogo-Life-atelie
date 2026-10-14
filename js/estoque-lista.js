@@ -112,7 +112,7 @@
     return ocr ? (/[lI]/.test(ocr[1]) ? 1 : 0) : null;
   }
 
-  // Tabela com cabeçalho (planilha, sistema): descobre a coluna da quantidade
+  // Tabela com cabeçalho (planilha, sistema): descobre as colunas de quantidade, nome e código
   function detectarColunas(brutas) {
     for (const l of brutas.slice(0, 20)) {
       for (const sep of ["\t", ";", "|"]) {
@@ -120,11 +120,40 @@
         const cels = l.split(sep).map((c) => semAcento(c).toLowerCase().replace(/\s+/g, " ").trim());
         for (const re of NOMES_COLUNA_QTD) {
           const i = cels.findIndex((c) => re.test(c));
-          if (i >= 0) return { sep, i };
+          if (i < 0) continue;
+          const iNome = cels.findIndex((c) => /^(produto|descri\S*|nome|item)\b/.test(c));
+          // "CÃ³digo" (acentos trocados ao exportar) também vale
+          const iCodigo = cels.findIndex((c) => /^c.{0,3}digo\b|^cod\.?$|^sku$|^refer/.test(c));
+          return { sep, i, iNome, iCodigo };
         }
       }
     }
     return null;
+  }
+
+  // "Bolsa Sara G-Off White" → "Bolsa Sara G - Off White"; "Helena M- sela" → "Helena M - Sela"
+  function arrumarNome(nome) {
+    const t = String(nome || "").replace(/\s+/g, " ").trim().replace(/\s*-\s*/g, " - ");
+    const [modelo, ...resto] = t.split(" - ");
+    const cor = resto.join(" - ");
+    return cor ? `${modelo} - ${cor.charAt(0).toUpperCase()}${cor.slice(1)}` : modelo;
+  }
+
+  // Peça que não está no catálogo: nome e código como escritos na lista (para cadastrar, se a pessoa quiser)
+  function sugerirCadastro(bruta, texto, colunas) {
+    if (colunas && colunas.iNome >= 0) {
+      const cels = bruta.split(colunas.sep);
+      const nome = arrumarNome(cels[colunas.iNome]);
+      const codigo = colunas.iCodigo >= 0 ? String(cels[colunas.iCodigo] || "").trim() : "";
+      if (/[a-z]{3}/i.test(nome)) return { nome, codigo: codigo || null };
+      return null;
+    }
+    // Sem colunas: tira código do início e quantidade/preço do fim
+    let resto = texto.replace(/^[A-Z0-9][A-Z0-9-]*\d[A-Z0-9-]*\s+/, "");
+    const codigo = texto.length !== resto.length ? texto.slice(0, texto.length - resto.length).trim() : null;
+    resto = resto.replace(/r\$\s*[\d.,]+/gi, " ").replace(/[\s.:=-]*(qtd|qtde|quantidade)?[\s.:=-]*\d{1,4}\s*(un|und|unid|unidades?|pcs?|pecas?)?\s*$/i, "").replace(/[\s.:-]+$/, "");
+    const nome = arrumarNome(resto);
+    return nome.split(" ").length >= 2 ? { nome, codigo } : null;
   }
 
   // Prepara o catálogo: palavras de cada produto, com a marcação de modelo e de pares de cor
@@ -267,7 +296,7 @@
           .some((l) => tokens.includes(l) && l.length >= 3 && !CABECALHO.has(l));
         if (comContexto && !sobrou) achado = comContexto;
       }
-      if (!achado) return { texto, quantidade, status: "sem_produto" };
+      if (!achado) return { texto, quantidade, status: "sem_produto", sugestao: quantidade == null ? null : sugerirCadastro(bruta, texto, colunas) };
       if (achado.conflito) return { texto, quantidade, status: "conflito", produto: achado.conflito, codigo: achado.codigo, nomeLista: achado.nome };
       if (achado.ambiguo) return { texto, quantidade, status: "ambiguo", opcoes: achado.ambiguo };
       if (quantidade == null) return { texto, status: "sem_quantidade", produto: achado.c.p };
@@ -293,7 +322,7 @@
     return { linhas: resultado, itens: [...porItem.values()] };
   }
 
-  const api = { lerLista, lerQuantidade, palavras };
+  const api = { lerLista, lerQuantidade, palavras, arrumarNome };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else raiz.LifeEstoque = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -580,8 +580,21 @@
     }
     const naLista = new Set(itens.map((it) => it.produto.id));
     const ausentes = produtos.filter((p) => !naLista.has(p.id));
-    const problemas = linhas.filter((l) => MOTIVOS[l.status]);
-    leituraAtual = { mudancas, ausentes };
+    // Peças da lista que não existem no catálogo (com nome e quantidade): podem ser cadastradas
+    const chaveNome = (n) => String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    const existentes = new Set(produtos.map((p) => chaveNome(p.nome)));
+    const porNome = new Map();
+    for (const l of linhas) {
+      if (l.status !== "sem_produto" || !l.sugestao || existentes.has(chaveNome(l.sugestao.nome))) continue;
+      const k = chaveNome(l.sugestao.nome);
+      const atual = porNome.get(k);
+      if (atual) { atual.quantidade += l.quantidade; atual.linhas.push(l.texto); }
+      else porNome.set(k, { ...l.sugestao, quantidade: l.quantidade, linhas: [l.texto] });
+    }
+    const novos = [...porNome.values()].sort((a, b) => colacao.compare(a.nome, b.nome));
+    const viraNovo = new Set(novos.flatMap((n) => n.linhas));
+    const problemas = linhas.filter((l) => MOTIVOS[l.status] && !viraNovo.has(l.texto));
+    leituraAtual = { mudancas, ausentes, novos };
     mudancas.sort((a, b) => colacao.compare(a.produto.nome, b.produto.nome));
 
     const li = (conteudo) => `<li>${conteudo}</li>`;
@@ -600,6 +613,16 @@
           Estoque: <span class="de">${qtdTexto(m.atual)}</span><span class="para">${m.quantidade}</span>
           <span class="origem">Na lista: "${esc(m.linhas.join(" + "))}"</span></span></label></li>`).join("")}</ul>`;
     }
+    if (novos.length) {
+      html += `<h3>Peças da lista que não estão no catálogo (${novos.length})</h3>
+        <p class="dica">Marque as que quer cadastrar. Elas entram <strong>ocultas</strong> (as clientes não veem), com o nome, o código e a quantidade da lista, sem foto e sem preço.
+        Se a mesma bolsa existe em outra cor no catálogo, a descrição e as medidas são copiadas dela — confira. Depois complete em <strong>Produtos</strong> e toque em <strong>Reativar</strong>.</p>
+        <button type="button" class="link" id="novos-todos">Marcar todas</button>
+        <ul>${novos.map((n, i) => `<li><label class="lista-item">
+          <input type="checkbox" data-novo="${i}">
+          <span><strong>${esc(n.nome)}</strong><br>${n.codigo ? `Código: ${esc(n.codigo)} · ` : ""}Quantidade: ${n.quantidade}
+          <span class="origem">Na lista: "${esc(n.linhas.join(" + "))}"</span></span></label></li>`).join("")}</ul>`;
+    }
     html += detalhes("Linhas que não entendi — confira e ajuste à mão", problemas.map((l) =>
       li(`"${esc(l.texto)}"<span class="motivo">${esc(MOTIVOS[l.status](l))}</span>`)), true);
     html += detalhes("Já estão com a quantidade certa", iguais.map((m) => li(`${esc(nomeComVariacao(m.produto, m.variacao))}: ${m.quantidade}`)));
@@ -608,7 +631,7 @@
       html += `<label class="interruptor"><input type="checkbox" id="lista-zerar">
         <span>Marcar essas ${ausentes.length} peças como esgotadas (estoque 0)</span></label>`;
     }
-    if (mudancas.length || ausentes.length) html += `<button type="button" class="botao" id="lista-aplicar">Aplicar alterações</button>`;
+    if (mudancas.length || ausentes.length || novos.length) html += `<button type="button" class="botao" id="lista-aplicar">Aplicar alterações</button>`;
     html += "</div>";
     $("lista-resultado").innerHTML = html;
     $("lista-status").textContent = "";
@@ -636,17 +659,65 @@
     }
   });
 
+  // Peça nova a partir da lista: copia os textos da mesma bolsa em outra cor (se houver), fica oculta
+  const chaveModelo = (nome) => String(nome || "").split(" - ")[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  function categoriaPara(nome, irma) {
+    if (irma && irma.categoria) return irma.categoria;
+    if (/^mochila/i.test(nome)) return "Mochilas";
+    const m = nome.match(/^Bolsa (?:Porta Celular )?([A-Za-zÀ-ú]+)/);
+    return m ? m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() : null;
+  }
+  function produtoNovo(n, ordem) {
+    const irma = produtos.find((p) => chaveModelo(p.nome) === chaveModelo(n.nome) && /multicolor/i.test(p.nome) === /multicolor/i.test(n.nome));
+    return {
+      nome: n.nome,
+      categoria: categoriaPara(n.nome, irma),
+      codigo: n.codigo || null,
+      preco: null,
+      preco_antigo: null,
+      descricao: irma ? irma.descricao : null,
+      materiais: irma ? irma.materiais : null,
+      medidas: irma ? irma.medidas : null,
+      caracteristicas: irma ? irma.caracteristicas : null,
+      fotos: [],
+      variacoes: [{ nome: "", quantidade: n.quantidade }],
+      visivel: false,
+      destaque: false,
+      ordem,
+      origem_url: null,
+    };
+  }
+
   $("lista-resultado").addEventListener("click", async (e) => {
+    if (e.target.id === "novos-todos") {
+      const caixas = [...document.querySelectorAll("[data-novo]")];
+      const marcar = caixas.some((c) => !c.checked);
+      caixas.forEach((c) => (c.checked = marcar));
+      e.target.textContent = marcar ? "Desmarcar todas" : "Marcar todas";
+      return;
+    }
     if (e.target.id !== "lista-aplicar" || !leituraAtual) return;
     const marcadas = [...document.querySelectorAll("[data-mudanca]")].filter((c) => c.checked).map((c) => leituraAtual.mudancas[Number(c.dataset.mudanca)]);
     const zerar = $("lista-zerar")?.checked
       ? leituraAtual.ausentes.flatMap((p) => variacoes(p).map((v, i) => ({ produto: p, variacao: i, quantidade: 0, atual: v.quantidade ?? null }))).filter((m) => m.atual !== 0)
       : [];
+    const novos = [...document.querySelectorAll("[data-novo]")].filter((c) => c.checked).map((c) => leituraAtual.novos[Number(c.dataset.novo)]);
     const todas = [...marcadas, ...zerar];
-    if (!todas.length) return aviso("Nada marcado para alterar.");
-    if (!confirm(`Atualizar o estoque de ${todas.length} item(ns)?`)) return;
+    if (!todas.length && !novos.length) return aviso("Nada marcado para alterar.");
+    const partes = [];
+    if (todas.length) partes.push(`atualizar o estoque de ${todas.length} ${todas.length === 1 ? "peça" : "peças"}`);
+    if (novos.length) partes.push(`cadastrar ${novos.length} ${novos.length === 1 ? "peça nova (oculta)" : "peças novas (ocultas)"}`);
+    if (!confirm(`Confirmar: ${partes.join(" e ")}?`)) return;
 
     e.target.disabled = true;
+    let criadas = 0;
+    if (novos.length) {
+      $("lista-status").textContent = `Cadastrando ${novos.length} ${novos.length === 1 ? "peça nova" : "peças novas"}…`;
+      const base = Math.max(0, ...produtos.map((p) => p.ordem || 0)) + 1;
+      const { data, error } = await sb.from("produtos").insert(novos.map((n, i) => produtoNovo(n, base + i))).select();
+      if (error) aviso("Não cadastrou as peças novas: " + error.message, true);
+      else { produtos.push(...data); criadas = data.length; }
+    }
     // Agrupa por produto (um produto com várias variações vira uma gravação só)
     const porProduto = new Map();
     for (const m of todas) {
@@ -662,10 +733,15 @@
     $("lista-resultado").innerHTML = "";
     desenharLista();
     desenharFiltros();
-    $("lista-status").textContent = feitas === porProduto.size
-      ? `Pronto! Estoque de ${feitas} ${feitas === 1 ? "peça atualizado" : "peças atualizado"} ✓ O catálogo já mostra as quantidades novas.`
-      : `${feitas} de ${porProduto.size} peças atualizadas. As outras deram erro — leia a lista de novo e aplique outra vez.`;
-    aviso("Estoque atualizado");
+    const msgs = [];
+    if (porProduto.size) msgs.push(feitas === porProduto.size
+      ? `estoque de ${feitas} ${feitas === 1 ? "peça atualizado" : "peças atualizado"}`
+      : `${feitas} de ${porProduto.size} peças atualizadas (as outras deram erro — leia a lista de novo e aplique outra vez)`);
+    if (novos.length) msgs.push(criadas === novos.length
+      ? `${criadas} ${criadas === 1 ? "peça nova cadastrada (oculta)" : "peças novas cadastradas (ocultas)"} — complete foto e preço em Produtos e toque em Reativar`
+      : "as peças novas não foram cadastradas");
+    $("lista-status").textContent = `Pronto! ${msgs.join("; ")} ✓`;
+    aviso("Lista aplicada");
   });
 
   // ---------- Preços do site ----------

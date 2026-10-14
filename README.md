@@ -41,6 +41,8 @@ Na aba **Estoque**, escolha o PDF da lista de estoque ou cole o texto dela. O ca
 - Antes de gravar, ele mostra **o que vai mudar** (quantidade antiga → nova), e dá para desmarcar qualquer item.
 - Linhas que ele não tem certeza (ex.: "Sara preta", que pode ser a P ou a G) aparecem em **"Linhas que não entendi"**. Ele nunca chuta.
 - Opcional: marcar como esgotadas (0) as peças do catálogo que **não aparecem** na lista.
+- Peças da lista que **não existem no catálogo** aparecem em um quadro próprio: marque e elas são cadastradas **ocultas**, com nome, código e quantidade da lista. Se a bolsa existe em outra cor, a descrição e as medidas vêm dela. Complete foto e preço em **Produtos** e toque em **Reativar**.
+- Código e nome discordando (ex.: o código é de uma cor no site e de outra na lista) vão para conferência e não são aplicados.
 - PDF que é foto ou digitalização não tem texto. Nesse caso, copie o texto e cole no campo.
 
 ### Atalho na tela de início
