@@ -563,6 +563,7 @@
     ambiguo: (l) => `pode ser mais de uma peça: ${l.opcoes.map((p) => p.nome).join(" / ")}`,
     sem_quantidade: (l) => `achei "${l.produto.nome}", mas não a quantidade`,
     sem_variacao: (l) => `achei "${l.produto.nome}", mas não qual cor/variação`,
+    conflito: (l) => `o código ${l.codigo} é "${l.produto.nome}" no catálogo, mas o nome na lista é de ${l.nomeLista ? `"${l.nomeLista.nome}"` : "outra peça (que não está no catálogo)"} — confira qual está certo`,
   };
 
   function lerListaDeEstoque() {
