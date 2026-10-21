@@ -105,3 +105,9 @@ ferramentas/site/        páginas products.json originais da loja (2 a 5)
 ferramentas/             extrator, dados da página 1 e gerador dos arquivos SQL
 vendor/supabase.js       biblioteca oficial do Supabase (v2.117.2)
 ```
+
+---
+
+## Outro projeto nesta pasta
+
+`fisioterapia/` contém o protótipo de prontuário **Letícia Bernucci Fisioterapia** (independente do catálogo). Veja [`fisioterapia/README.md`](fisioterapia/README.md).
