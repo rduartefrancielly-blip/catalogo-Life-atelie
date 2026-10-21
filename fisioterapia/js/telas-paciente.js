@@ -299,13 +299,16 @@
         } catch (e) { UI.mensagem(msg, { tipo: "erro", texto: "Não foi possível abrir o documento.", focar: true }); }
       };
       const baixarDoc = async () => {
-        const buf = await LB.banco.lerArquivo(doc.arquivoId);
-        const url = URL.createObjectURL(new Blob([buf], { type: doc.mime }));
-        const a = h("a", { href: url, download: doc.nome });
-        document.body.append(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-        UI.mensagem(msg, { tipo: "sucesso", titulo: "Download iniciado", texto: "“" + doc.nome + "” foi entregue ao navegador. Procure na pasta Downloads do aparelho." });
+        try {
+          const buf = await LB.banco.lerArquivo(doc.arquivoId);
+          await LB.arquivo.salvar(new Blob([buf], { type: doc.mime }), doc.nome);
+          UI.mensagem(msg, { tipo: "sucesso", titulo: "Download iniciado", texto: "“" + doc.nome + "” foi entregue ao navegador. Procure na pasta Downloads do aparelho." });
+        } catch (e) {
+          UI.mensagem(msg, { tipo: e.code === "declined" ? "info" : "erro", texto: e.message || "Não foi possível baixar o documento.", focar: true });
+        }
       };
+      // No visualizador do Claude não é possível abrir PDF em outra aba: fica só "Baixar".
+      const podeAbrir = doc.mime.startsWith("image/") || !LB.arquivo.noVisualizador();
       const excluirDoc = async () => {
         const ok = await UI.confirmar({ titulo: "Excluir este documento?", texto: "“" + doc.nome + "”", efeito: "O arquivo será apagado deste aparelho. Não tem volta. Cópias baixadas antes não são afetadas.", confirmarTexto: "Excluir documento", perigo: true });
         if (!ok) return;
@@ -318,7 +321,7 @@
           h("p", { class: "registro-titulo" }, UI.icone("documento"), h("span", null, doc.nome)),
           h("p", { class: "registro-detalhe" }, (doc.descricao ? doc.descricao + " · " : "") + U.tamanhoArquivo(doc.tamanho) + " · adicionado em " + U.carimbo(doc.criadoEm))),
         h("div", { class: "registro-acoes" },
-          UI.botao({ texto: "Abrir", icone: "olho", variante: "secundario", onClick: abrir }),
+          podeAbrir ? UI.botao({ texto: "Abrir", icone: "olho", variante: "secundario", onClick: abrir }) : null,
           UI.botao({ texto: "Baixar", icone: "download", variante: "discreto", onClick: baixarDoc }),
           UI.botao({ texto: "Excluir", icone: "lixeira", variante: "perigo", onClick: excluirDoc })));
     })));
@@ -343,10 +346,12 @@
             documentos: R.documentosDe(p.id).map(d => ({ nome: d.nome, descricao: d.descricao, tamanho: d.tamanho, adicionadoEm: d.criadoEm }))
           };
           const nome = "Dados_" + U.nomeArquivo(atual.dados.nome || R.nomeExibicao(atual)) + "_" + U.hojeISO() + ".json";
-          const url = URL.createObjectURL(new Blob([JSON.stringify(pacote, null, 2)], { type: "application/json" }));
-          const a = h("a", { href: url, download: nome }); document.body.append(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 60000);
-          UI.mensagem(msg, { tipo: "sucesso", titulo: "Arquivo entregue ao navegador", texto: "“" + nome + "”. Procure na pasta Downloads. Lembre-se: ele não é cifrado.", focar: true });
+          try {
+            await LB.arquivo.salvar(new Blob([JSON.stringify(pacote, null, 2)], { type: "application/json" }), nome);
+            UI.mensagem(msg, { tipo: "sucesso", titulo: "Arquivo entregue ao navegador", texto: "“" + nome + "”. Procure na pasta Downloads. Lembre-se: ele não é cifrado.", focar: true });
+          } catch (e) {
+            UI.mensagem(msg, { tipo: e.code === "declined" ? "info" : "erro", texto: e.message, focar: true });
+          }
         } })
       ]
     }));
@@ -521,7 +526,8 @@
     const base = "#/paciente/" + p.id + "/" + ficha + "/" + r.id;
     const acoes = [
       UI.botao({ texto: "Baixar em PDF", icone: "download", variante: "primario", onClick: () => LB.pdf.dialogo(R.paciente(p.id), { tipo: ficha, id: r.id }) }),
-      UI.botao({ texto: "Imprimir", icone: "impressora", variante: "secundario", onClick: () => window.print() }),
+      // No visualizador do Claude a impressão é bloqueada: o PDF é o caminho para imprimir.
+      LB.arquivo.noVisualizador() ? null : UI.botao({ texto: "Imprimir", icone: "impressora", variante: "secundario", onClick: () => window.print() }),
       r.status === "concluido"
         ? UI.botao({ texto: r.edicao ? "Continuar correção" : "Corrigir registro", icone: "lapis", variante: "secundario", onClick: async () => {
           if (!r.edicao) {

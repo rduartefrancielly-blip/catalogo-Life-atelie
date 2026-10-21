@@ -247,14 +247,6 @@
   }
 
   // ---------- Download e explicações por aparelho ----------
-  function baixar(blob, nome) {
-    const url = URL.createObjectURL(blob);
-    const a = h("a", { href: url, download: nome, style: "display:none" });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
 
   function aparelho() {
     const ua = navigator.userAgent || "";
@@ -379,6 +371,7 @@
     renderAtend();
 
     btnGerar.addEventListener("click", () => {
+      U.limpar(espacoMsg);
       const escolhidosAn = anamneses.filter(a => sel.anamneses.has(a.id)).reverse();
       const escolhidosAt = visiveis().filter(a => sel.atendimentos.has(a.id));
       if (!sel.cadastro && !escolhidosAn.length && !escolhidosAt.length) {
@@ -408,26 +401,37 @@
         UI.mensagem(espacoMsg, { tipo: "erro", texto: "O PDF não foi gerado e nada foi baixado. Motivo: " + e.message + " Tente recarregar a página.", focar: true });
         return;
       }
-      baixar(resultado.blob, resultado.nomeArquivo);
-      mostrarConfirmacao(dlg, resultado);
+      btnGerar.disabled = true;
+      LB.arquivo.salvar(resultado.blob, resultado.nomeArquivo)
+        .then(r => mostrarConfirmacao(dlg, resultado, r.modo))
+        .catch(e => {
+          btnGerar.disabled = false;
+          UI.mensagem(espacoMsg, { tipo: e.code === "declined" ? "info" : "erro", titulo: e.code === "declined" ? "Download cancelado" : null, texto: e.message, focar: true });
+        });
     });
   }
 
-  function mostrarConfirmacao(dlg, resultado) {
+  function mostrarConfirmacao(dlg, resultado, modo) {
     U.limpar(dlg.corpo);
     U.limpar(dlg.acoes);
     const arquivo = new File([resultado.blob], resultado.nomeArquivo, { type: "application/pdf" });
-    const podeCompartilhar = aparelho() !== "computador" && navigator.canShare && navigator.canShare({ files: [arquivo] });
+    const podeCompartilhar = !LB.arquivo.noVisualizador() && aparelho() !== "computador" && navigator.canShare && navigator.canShare({ files: [arquivo] });
+    const msgNovamente = h("div", { class: "dialogo-mensagem" });
     dlg.corpo.append(
       UI.aviso({
-        tipo: "sucesso", titulo: "PDF gerado e entregue ao navegador para download",
+        tipo: "sucesso", titulo: modo === "visualizador" ? "PDF gerado e salvo pelo navegador" : "PDF gerado e entregue ao navegador para download",
         texto: ["Arquivo: " + resultado.nomeArquivo + " (" + U.plural(resultado.paginas, "página", "páginas") + ", " + U.tamanhoArquivo(resultado.blob.size) + ")."].concat(ondeFoiSalvo()),
         focar: true
       }),
       h("p", { class: "texto-suave" }, "O sistema não tem acesso às suas pastas, por isso não consegue confirmar onde o navegador guardou o arquivo. Se ele não aparecer, use “Baixar novamente”."),
-      UI.aviso({ tipo: "alerta", titulo: "Cuidado com o arquivo", texto: "O PDF contém dados de saúde e não tem senha. Guarde em local seguro e envie apenas à própria pessoa ou a quem ela autorizar.", semAnuncio: true })
+      UI.aviso({ tipo: "alerta", titulo: "Cuidado com o arquivo", texto: "O PDF contém dados de saúde e não tem senha. Guarde em local seguro e envie apenas à própria pessoa ou a quem ela autorizar.", semAnuncio: true }),
+      msgNovamente
     );
-    const novamente = UI.botao({ texto: "Baixar novamente", icone: "download", variante: "secundario", onClick: () => baixar(resultado.blob, resultado.nomeArquivo) });
+    const novamente = UI.botao({ texto: "Baixar novamente", icone: "download", variante: "secundario", onClick: () => {
+      LB.arquivo.salvar(resultado.blob, resultado.nomeArquivo)
+        .then(() => UI.mensagem(msgNovamente, { tipo: "sucesso", titulo: "Arquivo enviado de novo para download" }))
+        .catch(e => UI.mensagem(msgNovamente, { tipo: e.code === "declined" ? "info" : "erro", texto: e.message }));
+    } });
     const fechar = UI.botao({ texto: "Fechar", variante: "primario", onClick: () => dlg.fechar() });
     if (podeCompartilhar) {
       const compartilhar = UI.botao({

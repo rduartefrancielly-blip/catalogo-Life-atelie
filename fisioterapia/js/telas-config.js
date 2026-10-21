@@ -11,12 +11,6 @@
       descricao ? h("p", { class: "cartao-sub" }, descricao) : null, conteudo);
   }
 
-  function baixarArquivo(conteudo, nome, tipo) {
-    const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
-    const a = h("a", { href: url, download: nome });
-    document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
 
   LB.telas.configuracoes = function (main, _p, q) {
     LB.app.titulo("Configurações");
@@ -234,9 +228,9 @@
         try {
           const copia = await LB.banco.exportarCopia();
           const nome = "Copia-seguranca_LB-Fisioterapia_" + U.hojeISO() + ".json";
-          baixarArquivo(JSON.stringify(copia), nome, "application/json");
+          await LB.arquivo.salvar(new Blob([JSON.stringify(copia)], { type: "application/json" }), nome);
           UI.mensagem(msgCopia, { tipo: "sucesso", titulo: "Cópia entregue ao navegador", texto: ["Arquivo: " + nome + ". Procure na pasta Downloads do aparelho.", "A cópia continua cifrada: para restaurar, será preciso a senha atual. Guarde-a em um local seguro, fora deste aparelho (por exemplo, um pen drive)."], focar: true });
-        } catch (e) { UI.mensagem(msgCopia, { tipo: "erro", texto: "A cópia não foi gerada. " + e.message, focar: true }); }
+        } catch (e) { UI.mensagem(msgCopia, { tipo: e.code === "declined" ? "info" : "erro", texto: e.code ? e.message : "A cópia não foi gerada. " + e.message, focar: true }); }
       } });
       const arquivo = h("input", { type: "file", id: "cfg-copia", accept: ".json,application/json", class: "entrada-arquivo" });
       const senhaCopia = UI.campoSimples({ rotulo: "Senha usada quando a cópia foi feita", tipo: "password" });

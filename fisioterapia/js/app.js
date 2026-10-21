@@ -132,7 +132,7 @@
       let ok;
       try { ok = await telaAtual.antesDeSair(); } finally { saindo = false; }
       if (!ok) { ignorarProxima = true; location.hash = rotaAtual; return; }
-      if (location.hash !== destino) history.replaceState(null, "", destino);
+      if (location.hash !== destino) { try { history.replaceState(null, "", destino); } catch (e) { /* segue */ } }
     }
     render();
   });
@@ -152,7 +152,7 @@
   // Troca o endereço sem recarregar a tela (ex.: rascunho recém-criado ganha seu próprio endereço).
   function substituirRota(rota) {
     if (saindo) return; // a tela já está sendo trocada: não mexe no endereço de destino
-    history.replaceState(null, "", rota);
+    try { history.replaceState(null, "", rota); } catch (e) { /* ambiente sem histórico: segue sem trocar o endereço */ }
     rotaAtual = rota;
   }
   function titulo(t) { document.title = t ? t + " — " + NOME_APP : NOME_APP; }
@@ -194,6 +194,15 @@
   LB.banco.aoMudar((ev, deOutraAba) => {
     if (!deOutraAba) return;
     if (!LB.banco.aberto()) { main = null; telaAtual = null; LB.telas.motivoBloqueio = "outra-aba"; render(); }
+  });
+
+  // Links internos (#/…) trocam de tela aqui mesmo, também quando a página roda dentro de um quadro.
+  document.addEventListener("click", ev => {
+    const a = ev.target.closest && ev.target.closest('a[href^="#/"]');
+    if (!a || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    const destino = a.getAttribute("href");
+    if (location.hash === destino) render(); else location.hash = destino;
   });
 
   async function iniciar() {
