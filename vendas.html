@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Vendas · Life Ateliê</title>
+  <meta name="theme-color" content="#FAF7F2">
+  <link rel="manifest" href="vendas.webmanifest">
+  <link rel="icon" href="img/icone-vendas-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="img/icone-vendas-180.png">
+  <meta name="apple-mobile-web-app-title" content="Life Vendas">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/tema.css?v=20261022">
+  <link rel="stylesheet" href="css/admin.css?v=20261022">
+  <link rel="stylesheet" href="css/vendas.css?v=20261022">
+</head>
+<body class="vendas">
+  <!-- Entrar -->
+  <main class="tela-login" id="tela-login" hidden>
+    <form class="caixa" id="form-login">
+      <p class="marca">Life Ateliê</p>
+      <h1>Vendas e estoque</h1>
+      <label>E-mail<input type="email" id="login-email" autocomplete="username" required></label>
+      <label>Senha<input type="password" id="login-senha" autocomplete="current-password" required></label>
+      <p class="erro" id="login-erro" role="alert"></p>
+      <button class="botao" type="submit">Entrar</button>
+    </form>
+  </main>
+
+  <div id="app" hidden>
+    <header class="adm-topo">
+      <p class="marca">Life Ateliê <small>vendas</small></p>
+      <div class="adm-acoes">
+        <span class="quem" id="quem"></span>
+        <a class="link" href="./admin.html" id="link-admin" hidden>Catálogo</a>
+        <button class="link" type="button" id="sair">Sair</button>
+      </div>
+    </header>
+
+    <nav class="abas" role="tablist" id="abas">
+      <button role="tab" type="button" data-aba="vender" aria-selected="true">Vender</button>
+      <button role="tab" type="button" data-aba="vendas" aria-selected="false">Vendas</button>
+      <button role="tab" type="button" data-aba="tags" aria-selected="false">Tags<span class="num" id="num-tags" hidden></span></button>
+      <button role="tab" type="button" data-aba="estoque" aria-selected="false">Estoque<span class="num alerta" id="num-estoque" hidden></span></button>
+      <button role="tab" type="button" data-aba="mais" aria-selected="false">Mais</button>
+    </nav>
+
+    <p class="carregando" id="carregando" role="status">Carregando…</p>
+
+    <!-- ===================== VENDER ===================== -->
+    <section id="sec-vender" role="tabpanel" hidden>
+      <div class="modo" role="group" aria-label="Como lançar">
+        <button type="button" class="chip" data-modo="manual" aria-pressed="true">Nova venda</button>
+        <button type="button" class="chip" data-modo="live" aria-pressed="false">Colar da live</button>
+      </div>
+
+      <!-- Nova venda -->
+      <div id="modo-manual">
+        <div class="estado-venda" id="estado-venda" role="status">
+          <span class="selo rascunho">Rascunho</span>
+          <span id="estado-texto">Nada foi registrado ainda. O estoque só muda quando você confirmar.</span>
+        </div>
+
+        <div class="caixa" id="resultado-venda" hidden></div>
+
+        <div class="col col-a">
+        <fieldset class="b-cliente">
+          <legend>Cliente</legend>
+          <label>Nome da cliente
+            <input type="text" id="cli-nome" list="lista-clientes" autocomplete="off" placeholder="Nome e sobrenome">
+          </label>
+          <datalist id="lista-clientes"></datalist>
+          <p class="dica" id="cli-dica" hidden></p>
+          <details class="mais-dados" id="cli-detalhes">
+            <summary>Telefone, CPF e endereço <small>(opcional)</small></summary>
+            <div class="duas">
+              <label>Telefone / WhatsApp<input type="tel" id="cli-telefone" inputmode="tel"></label>
+              <label>CPF / CNPJ<input type="text" id="cli-documento" inputmode="numeric"></label>
+            </div>
+            <label>E-mail<input type="email" id="cli-email"></label>
+            <div class="duas">
+              <label>CEP<input type="text" id="cli-cep" inputmode="numeric"></label>
+              <label>Número<input type="text" id="cli-numero"></label>
+            </div>
+            <label>Rua<input type="text" id="cli-rua"></label>
+            <div class="duas">
+              <label>Complemento<input type="text" id="cli-complemento"></label>
+              <label>Bairro<input type="text" id="cli-bairro"></label>
+            </div>
+            <div class="duas">
+              <label>Cidade<input type="text" id="cli-cidade"></label>
+              <label>UF<input type="text" id="cli-uf" maxlength="2"></label>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset class="b-pagamento">
+          <legend>Pagamento</legend>
+          <div class="segmentos" role="group" aria-label="Forma de pagamento" id="seg-pagamento">
+            <button type="button" class="seg" data-pag="pix" aria-pressed="false">Pix</button>
+            <button type="button" class="seg" data-pag="credito" aria-pressed="false">Cartão de crédito</button>
+            <button type="button" class="seg" data-pag="aguardando" aria-pressed="false">Aguardando pagamento</button>
+          </div>
+          <label id="box-parcelas" hidden>Parcelas
+            <select id="parcelas">
+              <option value="1">1x (à vista)</option><option value="2">2x</option><option value="3">3x</option>
+              <option value="4">4x</option><option value="5">5x</option><option value="6">6x</option>
+            </select>
+          </label>
+          <p class="rotulo">Comissão</p>
+          <div class="segmentos" role="group" aria-label="Comissão" id="seg-comissao">
+            <button type="button" class="seg" data-com="3" aria-pressed="true">3%</button>
+            <button type="button" class="seg" data-com="5" aria-pressed="false">5%</button>
+            <button type="button" class="seg" data-com="outro" aria-pressed="false">Outro</button>
+          </div>
+          <label id="box-com-outro" hidden>Comissão (%)<input type="text" id="com-outro" inputmode="decimal" placeholder="Ex.: 4"></label>
+        </fieldset>
+
+        <fieldset class="b-obs">
+          <legend>Observação</legend>
+          <label class="sem-margem"><textarea id="obs" rows="3" maxlength="500" placeholder="Entrega, prazo, combinados…"></textarea></label>
+          <p class="contagem"><span id="obs-conta">0</span>/500</p>
+        </fieldset>
+
+        <div class="caixa resumo-venda b-resumo" id="resumo-venda">
+          <div class="linha-total"><span>Total</span><strong id="total-venda">R$ 0,00</strong></div>
+          <p class="dica" id="total-nota" hidden></p>
+          <p class="dica" id="comissao-nota"></p>
+          <button type="button" class="link" id="alterar-valor">Alterar valor total (desconto ou acerto)</button>
+          <label id="box-valor" hidden>Valor total cobrado (R$)<input type="text" id="valor-manual" inputmode="decimal" placeholder="Ex.: 950,00"></label>
+          <p class="aviso-tag" id="aviso-tag" hidden></p>
+          <div class="tags-venda">
+            <button type="button" class="link" id="add-tag-venda">+ Tag da venda (brinde ou avulsa, sem produto)</button>
+            <ul class="itens-venda" id="tags-venda"></ul>
+          </div>
+        </div>
+
+        </div>
+
+        <div class="col col-b">
+        <fieldset class="b-produtos">
+          <legend>Produtos</legend>
+          <label class="busca-produto">Buscar por nome, código, cor ou categoria
+            <input type="search" id="busca-produto" autocomplete="off" placeholder="Ex.: alice preta, BLAL01, mochila">
+          </label>
+          <ul class="resultados" id="res-produtos" aria-label="Resultados da busca"></ul>
+          <p class="vazio" id="itens-vazio">Nenhum produto na venda ainda. Busque acima e toque no produto para adicionar.</p>
+          <ul class="itens-venda" id="itens-venda"></ul>
+        </fieldset>
+
+        <div class="caixa b-texto" id="caixa-texto">
+          <h2>Texto para copiar</h2>
+          <p class="dica">Copiar o texto <strong>não registra</strong> a venda. Para registrar, use o botão “Registrar venda”.</p>
+          <pre class="texto-venda" id="texto-venda"></pre>
+          <div class="acoes-linha">
+            <button type="button" class="botao botao-sec" id="copiar-texto">Copiar texto</button>
+            <a class="link" id="abrir-formato" href="#mais-texto">Mudar o formato do texto</a>
+          </div>
+          <p class="progresso" id="copiar-msg" aria-live="polite"></p>
+        </div>
+        </div>
+
+        <div class="barra-acao">
+          <p class="erro" id="venda-erro" role="alert"></p>
+          <div class="acoes-linha">
+            <button type="button" class="botao botao-sec" id="limpar-venda">Limpar</button>
+            <button type="button" class="botao" id="registrar-venda">Registrar venda</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Colar da live -->
+      <div id="modo-live" hidden>
+        <div class="caixa">
+          <h2>Colar da live</h2>
+          <p>Cole as mensagens do WhatsApp. Eu separo cada cliente, produto, tag, pagamento e dados de entrega. <strong>Nada é registrado até você conferir e confirmar.</strong></p>
+          <label>Mensagens
+            <textarea id="live-texto" rows="9" placeholder="Maria Souza&#10;(11) 99999-8888&#10;Rua das Flores, 100 - Centro - São Paulo/SP&#10;Alice preta&#10;Tag: MS café&#10;Pix"></textarea>
+          </label>
+          <p class="rotulo">Comissão das vendas da live</p>
+          <div class="segmentos" role="group" aria-label="Comissão da live" id="seg-live-com">
+            <button type="button" class="seg" data-com="3" aria-pressed="true">3%</button>
+            <button type="button" class="seg" data-com="5" aria-pressed="false">5%</button>
+          </div>
+          <div class="acoes-linha">
+            <button type="button" class="botao" id="live-ler">Ler mensagens</button>
+            <button type="button" class="botao botao-sec" id="live-limpar">Limpar</button>
+            <button type="button" class="link" id="live-modelo">Copiar modelo para pedir os dados</button>
+          </div>
+          <p class="progresso" id="live-msg" aria-live="polite"></p>
+        </div>
+        <div id="live-todas" class="caixa" hidden>
+          <button type="button" class="botao" id="live-registrar-todas">Registrar todas as prontas</button>
+        </div>
+        <div id="live-rascunhos"></div>
+      </div>
+    </section>
+
+    <!-- ===================== VENDAS ===================== -->
+    <section id="sec-vendas" role="tabpanel" hidden>
+      <div class="filtros caixa">
+        <div class="duas">
+          <label>De<input type="date" id="f-de"></label>
+          <label>Até<input type="date" id="f-ate"></label>
+        </div>
+        <div class="chips" id="f-atalhos">
+          <button type="button" class="chip" data-atalho="hoje">Hoje</button>
+          <button type="button" class="chip" data-atalho="ontem">Ontem</button>
+          <button type="button" class="chip" data-atalho="semana">7 dias</button>
+          <button type="button" class="chip" data-atalho="mes">Este mês</button>
+          <button type="button" class="chip" data-atalho="tudo">Tudo</button>
+        </div>
+        <input type="search" id="f-busca" placeholder="Buscar cliente, número, produto, código ou tag" aria-label="Buscar venda">
+        <div class="chips" id="f-status">
+          <button type="button" class="chip" data-status="todas" aria-pressed="true">Todas</button>
+          <button type="button" class="chip" data-status="aguardando" aria-pressed="false">Aguardando pagamento</button>
+          <button type="button" class="chip" data-status="canceladas" aria-pressed="false">Canceladas</button>
+        </div>
+      </div>
+      <div class="totais" id="totais-vendas"></div>
+      <div class="acoes-linha"><button type="button" class="botao botao-sec" id="v-imprimir">Imprimir / salvar PDF desta lista</button></div>
+      <ul class="lista-vendas" id="lista-vendas"></ul>
+      <p class="vazio" id="vendas-vazio" hidden>Nenhuma venda neste filtro.</p>
+
+      <div class="caixa" id="caixa-bling">
+        <h2>Levar as vendas para o Bling</h2>
+        <p>Gera uma planilha das vendas filtradas acima (sem as canceladas). A planilha serve para conferir e importar no Bling. A ligação direta com o Bling ainda não está ativa.</p>
+        <label class="interruptor"><input type="checkbox" id="bling-novas" checked><span>Só vendas que ainda não foram levadas</span></label>
+        <label class="interruptor"><input type="checkbox" id="bling-marcar" checked><span>Marcar como “levadas para o Bling” depois de baixar</span></label>
+        <button type="button" class="botao botao-sec" id="bling-baixar">Baixar planilha</button>
+        <p class="progresso" id="bling-msg" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- ===================== TAGS ===================== -->
+    <section id="sec-tags" role="tabpanel" hidden>
+      <div class="caixa">
+        <h2>Tags para a fábrica</h2>
+        <p>Cada tag aparece aqui quando a venda é registrada. Marque as que vão agora, copie a lista ou imprima/salve em PDF e mande para a fábrica.</p>
+        <div class="chips" id="t-status">
+          <button type="button" class="chip" data-st="a_fazer" aria-pressed="true">A fazer</button>
+          <button type="button" class="chip" data-st="enviada" aria-pressed="false">Enviadas</button>
+          <button type="button" class="chip" data-st="pronta" aria-pressed="false">Prontas</button>
+          <button type="button" class="chip" data-st="todas" aria-pressed="false">Todas</button>
+        </div>
+        <input type="search" id="t-busca" placeholder="Buscar cliente ou iniciais" aria-label="Buscar tag">
+      </div>
+      <p class="resumo" id="t-resumo" aria-live="polite"></p>
+      <ul class="lista-tags" id="lista-tags"></ul>
+      <div class="barra-acao-tags" id="barra-tags" hidden>
+        <button type="button" class="botao botao-sec" id="t-copiar">Copiar lista</button>
+        <button type="button" class="botao botao-sec" id="t-imprimir">Imprimir / salvar PDF</button>
+        <button type="button" class="botao botao-whats" id="t-whats" hidden>Enviar no WhatsApp</button>
+        <button type="button" class="botao" id="t-enviadas">Marcar como enviadas</button>
+      </div>
+      <p class="progresso" id="t-msg" aria-live="polite"></p>
+      <div class="caixa">
+        <h2>Tag avulsa</h2>
+        <p>Para uma tag que não está em nenhuma venda (cliente que só quer a tag).</p>
+        <button type="button" class="botao botao-sec" id="t-nova">+ Cadastrar tag avulsa</button>
+      </div>
+    </section>
+
+    <!-- ===================== ESTOQUE ===================== -->
+    <section id="sec-estoque" role="tabpanel" hidden>
+      <div class="resumo-estoque" id="resumo-estoque"></div>
+      <div class="caixa">
+        <input type="search" id="e-busca" placeholder="Buscar produto, código ou cor" aria-label="Buscar no estoque">
+        <div class="chips" id="e-filtro">
+          <button type="button" class="chip" data-ef="todos" aria-pressed="true">Todos</button>
+          <button type="button" class="chip" data-ef="esgotados" aria-pressed="false">Esgotados</button>
+          <button type="button" class="chip" data-ef="baixo" aria-pressed="false">Estoque baixo</button>
+          <button type="button" class="chip" data-ef="semcontrole" aria-pressed="false">Sem controle</button>
+        </div>
+        <label class="interruptor"><input type="checkbox" id="e-ocultos"><span>Mostrar também produtos ocultos no catálogo</span></label>
+      </div>
+      <div id="lista-estoque"></div>
+      <div class="caixa">
+        <h2>Histórico de estoque</h2>
+        <p>Toda entrada, saída, ajuste e venda fica registrada, com data, quantidade e motivo.</p>
+        <div class="duas">
+          <label>Produto<input type="search" id="h-busca" placeholder="Nome ou código"></label>
+          <label>Tipo
+            <select id="h-tipo">
+              <option value="">Todos</option><option value="venda">Vendas</option><option value="cancelamento">Cancelamentos</option>
+              <option value="entrada">Entradas</option><option value="saida">Saídas</option><option value="ajuste">Ajustes</option><option value="importacao">Importações</option>
+            </select>
+          </label>
+        </div>
+        <ul class="historico" id="lista-historico"></ul>
+        <button type="button" class="botao botao-sec" id="h-mais" hidden>Ver mais</button>
+      </div>
+      <p class="dica rodape-estoque">Para atualizar muita coisa de uma vez, use a lista em PDF no <a href="./admin.html">painel do catálogo</a>. Tudo que for mudado lá também entra no histórico.</p>
+    </section>
+
+    <!-- ===================== MAIS ===================== -->
+    <section id="sec-mais" role="tabpanel" hidden>
+      <div class="caixa" id="mais-texto">
+        <h2>Formato do texto da venda</h2>
+        <p>Use estas palavras entre chaves: <code>{cliente}</code> <code>{itens}</code> <code>{tags}</code> <code>{total}</code> <code>{pagamento}</code> <code>{observacao}</code> <code>{telefone}</code> <code>{endereco}</code> <code>{numero}</code> <code>{data}</code>. Linha cujos dados estiverem vazios some sozinha. Fica salvo neste aparelho.</p>
+        <label>Texto da venda<textarea id="fmt-modelo" rows="8"></textarea></label>
+        <label>Cada produto <small>Pode usar {qtd} {produto} {cor} {codigo} {preco} {subtotal} {tag}</small>
+          <input type="text" id="fmt-item">
+        </label>
+        <div class="acoes-linha">
+          <button type="button" class="botao botao-sec" id="fmt-padrao">Voltar ao padrão</button>
+        </div>
+        <p class="rotulo">Como ficaria</p>
+        <pre class="texto-venda" id="fmt-previa"></pre>
+      </div>
+
+      <div class="caixa">
+        <h2>Clientes</h2>
+        <input type="search" id="c-busca" placeholder="Buscar por nome, telefone, CPF ou cidade" aria-label="Buscar cliente">
+        <p class="resumo" id="c-resumo"></p>
+        <ul class="lista-clientes" id="lista-clientes-tela"></ul>
+        <button type="button" class="botao botao-sec" id="c-exportar">Baixar lista de clientes (planilha)</button>
+      </div>
+
+      <form class="caixa" id="form-ajustes" hidden>
+        <h2>Ajustes da loja</h2>
+        <p>Só a administradora vê esta parte.</p>
+        <div class="duas">
+          <label>Tag a partir de (R$)<input type="text" id="aj-tag" inputmode="decimal"></label>
+          <label>Comissão padrão (%)<input type="text" id="aj-comissao" inputmode="decimal"></label>
+        </div>
+        <div class="duas">
+          <label>Avisar estoque baixo até<input type="number" id="aj-baixo" min="0" step="1"></label>
+          <label>WhatsApp da fábrica<input type="tel" id="aj-fabrica" inputmode="numeric" placeholder="5531999999999"></label>
+        </div>
+        <button class="botao" type="submit">Salvar ajustes</button>
+        <p class="progresso" id="aj-msg" aria-live="polite"></p>
+      </form>
+
+      <div class="caixa" id="caixa-conta">
+        <h2>Esta conta</h2>
+        <p id="conta-info"></p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Confirmar venda -->
+  <dialog class="janela" id="dlg-confirmar" aria-labelledby="dc-titulo">
+    <form method="dialog" id="form-confirmar">
+      <h2 id="dc-titulo">Registrar esta venda?</h2>
+      <div id="dc-corpo"></div>
+      <p class="erro" id="dc-erro" role="alert"></p>
+      <div class="acoes-linha">
+        <button type="button" class="botao botao-sec" id="dc-voltar">Voltar</button>
+        <button type="button" class="botao" id="dc-ok">Sim, registrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Detalhe da venda -->
+  <dialog class="janela larga" id="dlg-venda" aria-labelledby="dv-titulo">
+    <div id="dv-corpo"></div>
+  </dialog>
+
+  <!-- Estoque: entrada, saída ou ajuste -->
+  <dialog class="janela" id="dlg-estoque" aria-labelledby="de-titulo">
+    <form id="form-estoque">
+      <h2 id="de-titulo">Estoque</h2>
+      <p id="de-produto" class="dica"></p>
+      <div class="segmentos" role="group" aria-label="O que fazer" id="de-tipos">
+        <button type="button" class="seg" data-tipo="entrada" aria-pressed="true">Entrada</button>
+        <button type="button" class="seg" data-tipo="saida" aria-pressed="false">Saída</button>
+        <button type="button" class="seg" data-tipo="ajuste" aria-pressed="false">Ajuste</button>
+      </div>
+      <p class="dica" id="de-explica"></p>
+      <label><span id="de-rotulo-qtd">Quantidade</span><input type="number" id="de-qtd" min="0" step="1" inputmode="numeric" required></label>
+      <label>Motivo<input type="text" id="de-motivo" placeholder="Ex.: reposição da fábrica, peça com defeito, contagem"></label>
+      <p class="erro" id="de-erro" role="alert"></p>
+      <div class="acoes-linha">
+        <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+        <button type="submit" class="botao">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Tag: cadastrar ou editar -->
+  <dialog class="janela" id="dlg-tag" aria-labelledby="dt-titulo">
+    <form id="form-tag">
+      <h2 id="dt-titulo">Tag</h2>
+      <label id="dt-box-cliente">Cliente<input type="text" id="dt-cliente" list="lista-clientes" autocomplete="off"></label>
+      <label>Iniciais<input type="text" id="dt-iniciais" maxlength="8" autocapitalize="characters" placeholder="Ex.: MS"></label>
+      <p class="rotulo">Cor da tag</p>
+      <div class="cores" id="dt-cores"></div>
+      <label>Observação<input type="text" id="dt-obs"></label>
+      <p class="erro" id="dt-erro" role="alert"></p>
+      <div class="acoes-linha">
+        <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+        <button type="submit" class="botao">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Cliente: editar -->
+  <dialog class="janela larga" id="dlg-cliente" aria-labelledby="dcl-titulo">
+    <form id="form-cliente">
+      <h2 id="dcl-titulo">Cliente</h2>
+      <label>Nome<input type="text" id="dcl-nome" required></label>
+      <div class="duas">
+        <label>Telefone<input type="tel" id="dcl-telefone"></label>
+        <label>CPF / CNPJ<input type="text" id="dcl-documento"></label>
+      </div>
+      <label>E-mail<input type="email" id="dcl-email"></label>
+      <div class="duas">
+        <label>CEP<input type="text" id="dcl-cep"></label>
+        <label>Número<input type="text" id="dcl-numero"></label>
+      </div>
+      <label>Rua<input type="text" id="dcl-rua"></label>
+      <div class="duas">
+        <label>Complemento<input type="text" id="dcl-complemento"></label>
+        <label>Bairro<input type="text" id="dcl-bairro"></label>
+      </div>
+      <div class="duas">
+        <label>Cidade<input type="text" id="dcl-cidade"></label>
+        <label>UF<input type="text" id="dcl-uf" maxlength="2"></label>
+      </div>
+      <label>Observações <small>até 500 caracteres</small><textarea id="dcl-obs" rows="3" maxlength="500"></textarea></label>
+      <p class="erro" id="dcl-erro" role="alert"></p>
+      <div class="acoes-linha">
+        <button type="button" class="botao botao-sec" data-fechar>Cancelar</button>
+        <button type="submit" class="botao">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
+
+  <!-- Folha para imprimir a lista da fábrica -->
+  <div id="folha-impressao" aria-hidden="true"></div>
+
+  <script src="vendor/supabase.js?v=20261022"></script>
+  <script src="js/config.js?v=20261022"></script>
+  <script src="js/comum.js?v=20261022"></script>
+  <script src="js/vendas-lib.js?v=20261022"></script>
+  <script src="js/vendas.js?v=20261022"></script>
+  <script src="js/vendas-telas.js?v=20261022"></script>
+</body>
+</html>
