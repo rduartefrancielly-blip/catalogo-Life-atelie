@@ -149,16 +149,22 @@ window.VendasLib = (function () {
   const comissao = (total, pct) => arred((Number(total) * Number(pct)) / 100);
 
   // ---------- Texto para copiar ----------
+  // Formato do sistema antigo (pode ser mudado em Cadastro > Formato do texto)
   const MODELO_TEXTO = [
-    "*Pedido Life Ateliê*",
+    "Pedido {numero} - {data}",
     "Cliente: {cliente}",
+    "CPF/CNPJ: {documento}",
+    "Telefone: {telefone}",
+    "E-mail: {email}",
+    "Endereço: {endereco}",
+    "Itens:",
     "{itens}",
-    "Tag: {tags}",
-    "Total: {total}",
+    "Valor total: {total}",
     "Pagamento: {pagamento}",
+    "Tag: {tags}",
     "Obs.: {observacao}",
   ].join("\n");
-  const MODELO_ITEM = "{qtd}x {produto} {cor} - {preco}";
+  const MODELO_ITEM = "- {codigo} | {produto} - {cor} x{qtd}";
   const marcadores = (s) => (String(s).match(/\{(\w+)\}/g) || []).map((m) => m.slice(1, -1));
   function montarTexto(v, cfg) {
     cfg = Object.assign({ modelo: MODELO_TEXTO, item: MODELO_ITEM }, cfg || {});
@@ -167,8 +173,13 @@ window.VendasLib = (function () {
         qtd: i.quantidade, produto: i.modelo || i.descricao, cor: i.cor || "", codigo: i.codigo || "", preco: brl(i.preco_unit),
         subtotal: brl(Number(i.preco_unit || 0) * Number(i.quantidade || 0)), tag: i.tag ? tagTexto(i.tag) : "",
       };
-      let linha = String(cfg.item).replace(/\{(\w+)\}/g, (m, k) => (k in dados ? dados[k] : m));
-      return linha.replace(/\s+/g, " ").replace(/\s+-\s*$/, "").replace(/^\s*-\s+/, "").trim();
+      const linha = String(cfg.item).replace(/\{(\w+)\}/g, (m, k) => (k in dados ? dados[k] : m));
+      return linha
+        .replace(/\s+/g, " ")
+        .replace(/^(- )?\|\s*/, "$1") // sem código: "- | Alice" vira "- Alice"
+        .replace(/\s+-\s+(x\d+)\s*$/, " $1") // sem cor: "Alice - x1" vira "Alice x1"
+        .replace(/\s+-\s*$/, "")
+        .trim();
     });
     const tags = [];
     (v.itens || []).forEach((i) => i.tag && tags.push(tagTexto(i.tag)));
@@ -176,6 +187,7 @@ window.VendasLib = (function () {
     const pag = v.pagamento ? PAGAMENTOS[v.pagamento] + (v.pagamento === "credito" && v.parcelas ? " em " + v.parcelas + "x" : "") : "";
     const dados = {
       numero: v.numero ? "#" + v.numero : "", cliente: v.cliente_nome || "", telefone: (v.cliente || {}).telefone || "",
+      documento: (v.cliente || {}).documento || "", email: (v.cliente || {}).email || "",
       endereco: enderecoLinha(v.cliente || {}), itens: itens.join("\n"), tags: tags.join(", "), total: v.valor_total != null ? brl(v.valor_total) : "",
       pagamento: pag, parcelas: v.parcelas || "", observacao: v.observacao || "", data: v.data || "",
     };
