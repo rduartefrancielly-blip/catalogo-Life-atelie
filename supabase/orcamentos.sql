@@ -89,4 +89,10 @@ create policy "equipe apaga fotos de orcamento" on storage.objects
   for delete to authenticated
   using (bucket_id = 'fotos' and name like 'orcamentos/%' and public.pode_orcar());
 
+-- o armazenamento só apaga uma foto se quem pede também puder "ver" a foto
+drop policy if exists "equipe ve fotos de orcamento" on storage.objects;
+create policy "equipe ve fotos de orcamento" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'fotos' and name like 'orcamentos/%' and public.pode_orcar());
+
 select 'Orçamentos prontos ✓' as resultado;

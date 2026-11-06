@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/tema.css?v=20261014b">
-  <link rel="stylesheet" href="css/admin.css?v=20261014b">
+  <link rel="stylesheet" href="css/admin.css?v=20261106">
 </head>
 <body>
   <!-- Entrar -->
@@ -93,7 +93,7 @@
 
       <div class="caixa" id="caixa-precos">
         <h2>Preços do site</h2>
-        <p>Compara os preços do catálogo com os preços atuais de lifeatelie.com.br. Nada muda até você confirmar.</p>
+        <p>Compara os preços do catálogo com os preços atuais de lifeatelie.com.br, inclusive promoções (como a Black Friday): o preço de promoção entra como preço e o valor antigo aparece riscado no catálogo. Nada muda até você confirmar.</p>
         <button class="botao" type="button" id="precos-buscar">Comparar com o site</button>
         <div id="precos-manual" hidden>
           <p class="aviso-caixa">O site não deixou buscar os preços direto daqui. Sem problema, faça assim:</p>
@@ -111,11 +111,24 @@
         <div id="precos-resultado"></div>
       </div>
 
-      <div class="caixa">
+      <div class="caixa" id="caixa-fotos">
         <h2>Fotos do site</h2>
-        <p>As fotos importadas ainda estão hospedadas no site (Shopify). Copie para o seu banco para que continuem aparecendo mesmo se o site sair do ar.</p>
-        <button class="botao botao-sec" type="button" id="copiar-fotos">Copiar fotos para o banco</button>
-        <p class="progresso" id="copiar-status" aria-live="polite"></p>
+        <p>Confere as fotos de cada produto com as fotos atuais de lifeatelie.com.br e traz para a plataforma as que forem novas ou tiverem mudado. As fotos ficam guardadas no seu banco. Nada muda até você confirmar.</p>
+        <button class="botao" type="button" id="fotos-buscar">Conferir fotos com o site</button>
+        <div id="fotos-manual" hidden>
+          <p class="aviso-caixa">O site não deixou ler as fotos direto daqui. Sem problema, faça assim (de preferência no computador):</p>
+          <ol class="passos">
+            <li>Abra <a href="https://www.lifeatelie.com.br/products.json?limit=250" target="_blank" rel="noopener">esta página do site</a> (é um texto comprido).</li>
+            <li>Salve a página: <strong>Ctrl + S</strong> (Mac: <strong>Cmd + S</strong>).</li>
+            <li>Volte aqui e escolha o arquivo salvo:</li>
+          </ol>
+          <label class="botao botao-sec arquivo">
+            Escolher arquivo do site
+            <input type="file" id="fotos-arquivo" accept=".json,application/json,text/plain" multiple>
+          </label>
+        </div>
+        <p class="progresso" id="fotos-status" aria-live="polite"></p>
+        <div id="fotos-resultado"></div>
       </div>
     </section>
   </div>
@@ -188,6 +201,6 @@
   <script src="js/config.js?v=20261014b"></script>
   <script src="js/comum.js?v=20261014b"></script>
   <script src="js/estoque-lista.js?v=20261014b"></script>
-  <script src="js/admin.js?v=20261014b"></script>
+  <script src="js/admin.js?v=20261106"></script>
 </body>
 </html>

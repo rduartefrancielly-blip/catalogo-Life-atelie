@@ -126,3 +126,15 @@ section[role=tabpanel] { max-width: 760px; margin: 0 auto; padding: 16px; }
 .lista-item .origem { display: block; font-size: .78rem; color: var(--texto-suave); margin-top: 2px; }
 .motivo { display: block; font-size: .8rem; color: #7A4A0B; margin-top: 2px; }
 .comparacao details[open] summary { color: var(--texto); font-weight: 600; }
+
+/* Fotos do site */
+.fotos-conferencia .dica-fotos { font-size: .85rem; color: var(--texto-suave); margin: 0 0 8px; }
+.fotos-conferencia .botao-mini { width: auto; margin: 0 0 8px; }
+.fotos-par { display: flex; gap: 8px; align-items: center; margin: 8px 0 0 32px; }
+.fotos-par > span { flex: none; width: 62px; font-size: .75rem; color: var(--texto-suave); }
+.fotos-linha { display: flex; gap: 4px; overflow-x: auto; padding: 2px; min-width: 0; }
+.fotos-linha img { flex: none; width: 44px; height: 56px; object-fit: cover; border-radius: 6px; background: var(--linha); }
+.fotos-linha img.nova { outline: 2px solid var(--destaque); outline-offset: 1px; }
+.fotos-linha em { font-size: .8rem; color: var(--texto-suave); }
+.etiqueta-oculto { font-size: .72rem; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--linha); color: var(--texto-suave); margin-left: 4px; }
+@media (max-width: 480px) { .fotos-par { margin-left: 0; } .fotos-par > span { width: 52px; } }

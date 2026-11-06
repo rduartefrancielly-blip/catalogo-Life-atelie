@@ -25,7 +25,8 @@ Entre em **admin.html** com seu e-mail e senha. Tudo que você salvar aparece na
 | Produto novo | **+ Novo** |
 | Apagar um produto | No produto → **Excluir** (não tem volta; prefira Ocultar) |
 | Atualizar o estoque pela lista (PDF) | Aba **Estoque** → **Escolher PDF da lista** (ou cole o texto) → confira a prévia → **Aplicar alterações** |
-| Alinhar os preços com o site | Aba **Loja** → **Comparar com o site** → confira a lista → **Aplicar** |
+| Alinhar os preços com o site (inclusive promoções, como a Black Friday) | Aba **Loja** → **Comparar com o site** → confira a lista → **Aplicar**. Quando a promoção acabar no site, faça de novo |
+| Trazer as fotos novas do site | Aba **Loja** → **Conferir fotos com o site** → confira o que mudou → **Atualizar** |
 | Mudar WhatsApp / Instagram | Aba **Loja** |
 | Esconder as esgotadas | Aba **Loja** → desmarque "Mostrar peças esgotadas" |
 
@@ -44,6 +45,16 @@ Na aba **Estoque**, escolha o PDF da lista de estoque ou cole o texto dela. O ca
 - Peças da lista que **não existem no catálogo** aparecem em um quadro próprio: marque e elas são cadastradas **ocultas**, com nome, código e quantidade da lista. Se a bolsa existe em outra cor, a descrição e as medidas vêm dela. Complete foto e preço em **Produtos** e toque em **Reativar**.
 - Código e nome discordando (ex.: o código é de uma cor no site e de outra na lista) vão para conferência e não são aplicados.
 - PDF que é foto ou digitalização não tem texto. Nesse caso, copie o texto e cole no campo.
+
+### Fotos e preços do site
+
+Na aba **Loja**, as caixas **Preços do site** e **Fotos do site** comparam o catálogo com lifeatelie.com.br e mostram o que vai mudar antes de gravar.
+
+- Se o site não deixar ler direto, aparece o passo a passo: abrir o link, salvar com **Ctrl + S** e escolher o arquivo. O mesmo arquivo vale para as duas caixas.
+- Cada produto é achado pelo link do site. As peças cadastradas pela lista (sem link) são achadas pelo **código** ou pelo **nome** e ganham o link.
+- **Fotos:** só entram as fotos novas ou trocadas no site. As que já estão no seu banco são reaproveitadas. Produtos com fotos que você mesma colocou aparecem em **"Confira antes"**, desmarcados.
+- **Preços:** o preço de promoção entra como preço, e o valor antigo do site aparece riscado no catálogo. Vale também para a tela de vendas e os orçamentos.
+- Uma vez só: rode [`supabase/fotos-permissoes.sql`](supabase/fotos-permissoes.sql) no Supabase para o sistema conseguir apagar as fotos que não são mais usadas (sem isso, elas ficam guardadas ocupando espaço).
 
 ### Atalho na tela de início
 
@@ -120,7 +131,7 @@ css/tema.css             cores e fontes da marca (troque aqui)
 js/config.js             conexão com o banco
 supabase/*.sql           banco de dados e carga inicial (orcamentos.sql: aba Orçamentos)
 ferramentas/site/        páginas products.json originais da loja (2 a 5)
-ferramentas/             extrator, dados da página 1 e gerador dos arquivos SQL
+ferramentas/             extrator, dados da página 1, gerador dos arquivos SQL e de js/fotos-importacao.json
 vendor/supabase.js       biblioteca oficial do Supabase (v2.117.2)
 vendor/jspdf/            gerador de PDF dos orçamentos (jsPDF 2.5.2, licença MIT)
 js/orcamento-*.js, js/vendas-orcamentos.js   aba Orçamentos (contas, imagem/PDF e tela)

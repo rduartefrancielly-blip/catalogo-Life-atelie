@@ -115,3 +115,8 @@ create policy "admin altera fotos" on storage.objects
 drop policy if exists "admin apaga fotos" on storage.objects;
 create policy "admin apaga fotos" on storage.objects
   for delete using (bucket_id = 'fotos' and public.eh_admin());
+
+-- o armazenamento só apaga uma foto se quem pede também puder "ver" a foto
+drop policy if exists "admin ve fotos" on storage.objects;
+create policy "admin ve fotos" on storage.objects
+  for select to authenticated using (bucket_id = 'fotos' and public.eh_admin());
