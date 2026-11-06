@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261023">
+  <link rel="stylesheet" href="css/vendas.css?v=20261106">
 </head>
 <body>
   <!-- Entrar -->
@@ -46,6 +46,7 @@
       <div class="tabs" id="abas">
         <button type="button" data-tab="home" class="active">Início</button>
         <button type="button" data-tab="sales">Vendas</button>
+        <button type="button" data-tab="orcamentos">Orçamentos</button>
         <button type="button" data-tab="live">Live</button>
         <button type="button" data-tab="stock">Estoque <span class="dot" id="stockDot" hidden>0</span></button>
         <button type="button" data-tab="tags">Tags <span class="dot" id="tagsDot" hidden>0</span></button>
@@ -78,6 +79,7 @@
         <summary>Como usar o sistema</summary>
         <ol class="howto-steps">
           <li><div><b>Venda</b><span>Registre a venda. Se passar do valor da regra (R$ 399), a tag aparece sozinha para você preencher. Tag vendida avulsa: escolha "Tag personalizada" nos produtos.</span></div><button type="button" class="btn ghost small" data-go="sales">Abrir</button></li>
+          <li><div><b>Orçamentos</b><span>Monte o orçamento com foto, preço e frete, veja a prévia e envie para a cliente pelo WhatsApp (texto, imagem ou PDF).</span></div><button type="button" class="btn ghost small" data-go="orcamentos">Abrir</button></li>
           <li><div><b>Estoque</b><span>Cada venda já tira do estoque. Para repor ou corrigir, use os botões − e + ou digite a quantidade.</span></div><button type="button" class="btn ghost small" data-go="stock">Abrir</button></li>
           <li><div><b>Tags</b><span>Escolha as tags do dia e envie o pedido para a fábrica.</span></div><button type="button" class="btn ghost small" data-go="tags">Abrir</button></li>
           <li><div><b>Bling</b><span>Baixe a planilha das vendas e lance no Bling.</span></div><button type="button" class="btn ghost small" data-go="bling">Abrir</button></li>
@@ -187,6 +189,88 @@
       <div class="form-msg" id="salesPdfMsg"></div>
       <div id="salesClientResults"></div>
       <div id="salesList"></div>
+    </section>
+
+    <!-- ============ Orçamentos ============ -->
+    <section id="panelOrcamentos" class="panel">
+      <div class="card orc-sem-tabela" id="orcSemTabela" hidden>
+        <h2 class="sec-title">Falta um passo para usar os orçamentos</h2>
+        <p class="mini-note" style="margin-top:0">O banco de dados ainda não tem o lugar dos orçamentos. A administradora precisa abrir o Supabase → <b>SQL Editor</b> → <b>New query</b>, colar o arquivo <b>supabase/orcamentos.sql</b> e tocar em <b>Run</b>. Depois é só voltar aqui e atualizar a página.</p>
+      </div>
+
+      <div class="card" id="orcCard">
+        <div id="orcEditBanner" class="editing-banner" hidden>
+          <span id="orcEditTexto"></span>
+          <button type="button" class="btn ghost" id="orcNovo">Novo orçamento</button>
+        </div>
+        <h2 class="sec-title" id="orcTitulo">Novo orçamento</h2>
+        <div class="sale-grid">
+          <div class="f-3">
+            <label for="orcCliente">Nome da cliente</label>
+            <input type="text" id="orcCliente" list="clientsDatalist" placeholder="Nome da cliente" autocomplete="off" maxlength="120">
+          </div>
+          <div class="f-3">
+            <label for="orcWhats">WhatsApp com DDD</label>
+            <input type="tel" id="orcWhats" inputmode="tel" placeholder="(31) 99999-9999" autocomplete="off" maxlength="25">
+            <div class="field-hint" id="orcWhatsHint"></div>
+          </div>
+
+          <div class="f-6">
+            <label for="orcBusca">Produtos</label>
+            <div class="orc-busca">
+              <input type="search" id="orcBusca" placeholder="Buscar no catálogo: modelo, cor ou código" autocomplete="off" aria-describedby="orcBuscaDica" aria-controls="orcResultados">
+              <div class="orc-resultados" id="orcResultados" role="listbox" aria-label="Produtos do catálogo" hidden></div>
+            </div>
+            <div class="field-hint" id="orcBuscaDica">Escolha do catálogo para já vir com foto e preço, ou use "+ Adicionar produto" para escrever à mão.</div>
+            <div id="orcItens"></div>
+            <button type="button" class="btn ghost add-tag-row-btn" id="orcAddItem">+ Adicionar produto</button>
+          </div>
+
+          <div class="f-3">
+            <label for="orcFrete">Frete (R$)</label>
+            <input type="text" id="orcFrete" inputmode="decimal" placeholder="0,00" autocomplete="off">
+          </div>
+          <div class="f-3">
+            <label for="orcAjusteTipo">Ajustar o valor <span class="opcional">(opcional)</span></label>
+            <select id="orcAjusteTipo">
+              <option value="">Sem ajuste</option>
+              <option value="desconto_pct">Desconto em %</option>
+              <option value="desconto_valor">Desconto em R$</option>
+              <option value="acrescimo_valor">Acréscimo em R$</option>
+            </select>
+          </div>
+          <div class="f-3" id="orcAjusteValorCampo" hidden>
+            <label for="orcAjusteValor" id="orcAjusteValorRotulo">Desconto (%)</label>
+            <input type="text" id="orcAjusteValor" inputmode="decimal" placeholder="Ex.: 5" autocomplete="off">
+            <div class="field-hint" id="orcAjusteHint"></div>
+          </div>
+          <div class="f-3" id="orcAjusteDescCampo" hidden>
+            <label for="orcAjusteDesc">Nome do ajuste <span class="opcional">(aparece para a cliente)</span></label>
+            <input type="text" id="orcAjusteDesc" placeholder="Ex.: Desconto no Pix" autocomplete="off" maxlength="60">
+          </div>
+          <div class="f-6">
+            <label for="orcObs">Observações <span class="opcional">(opcional)</span></label>
+            <textarea id="orcObs" rows="3" maxlength="1000" placeholder="Ex.: prazo de entrega, forma de pagamento, validade do orçamento"></textarea>
+          </div>
+        </div>
+
+        <div class="orc-totais" id="orcTotais" aria-live="polite"></div>
+
+        <div class="form-actions orc-botoes">
+          <div class="form-msg" id="orcMsg" role="status" aria-live="polite"></div>
+          <button type="button" class="btn" id="orcVer">Visualizar e enviar</button>
+          <button type="button" class="btn ghost" id="orcSalvar">Salvar rascunho</button>
+          <button type="button" class="btn ghost" id="orcCopiarForm">Copiar orçamento</button>
+        </div>
+      </div>
+
+      <div class="summary" id="orcResumo"></div>
+      <div class="search-big">
+        <input type="search" id="orcPesquisa" placeholder="Pesquisar orçamento: cliente, produto ou nº" aria-label="Pesquisar orçamentos" autocomplete="off">
+      </div>
+      <div class="stock-filter" id="orcFiltro" role="group" aria-label="Filtrar por situação"></div>
+      <div class="form-msg" id="orcListaMsg" role="status"></div>
+      <div id="orcLista"></div>
     </section>
 
     <!-- ============ Live ============ -->
@@ -395,6 +479,32 @@
     </form>
   </dialog>
 
+  <!-- Orçamento: prévia e envio -->
+  <dialog class="janela orc-janela" id="dlgOrc" aria-labelledby="dorcTitulo">
+    <div class="orc-janela-topo">
+      <h2 id="dorcTitulo">Prévia do orçamento</h2>
+      <button type="button" class="icon-btn" data-fechar aria-label="Fechar a prévia">✕</button>
+    </div>
+    <div id="orcPrevia"></div>
+    <div class="orc-janela-rodape">
+    <div class="orc-status-linha">
+      <label for="orcStatusPrevia">Situação</label>
+      <select id="orcStatusPrevia" class="status-select"></select>
+      <button type="button" class="btn ghost small" id="orcEditarPrevia">Editar orçamento</button>
+    </div>
+    <div class="orc-acoes">
+      <button type="button" class="btn big" id="orcWhatsBtn">Enviar pelo WhatsApp</button>
+      <button type="button" class="btn ghost" id="orcCopiarTexto">Copiar texto</button>
+      <button type="button" class="btn ghost" id="orcCopiarImagem" hidden>Copiar imagem</button>
+      <button type="button" class="btn ghost" id="orcCompartilhar" hidden>Enviar imagem</button>
+      <button type="button" class="btn ghost" id="orcBaixarImagem">Baixar imagem</button>
+      <button type="button" class="btn ghost" id="orcBaixarPdf">Baixar PDF</button>
+    </div>
+    <div class="form-msg" id="orcPreviaMsg" role="status" aria-live="polite"></div>
+    <p class="mini-note" id="orcDicaEnvio"></p>
+    </div>
+  </dialog>
+
   <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
   <div id="folha-impressao" aria-hidden="true"></div>
 
@@ -402,7 +512,10 @@
   <script src="js/config.js?v=20261022"></script>
   <script src="js/comum.js?v=20261022"></script>
   <script src="js/vendas-lib.js?v=20261023"></script>
-  <script src="js/vendas.js?v=20261023"></script>
+  <script src="js/vendas.js?v=20261106"></script>
   <script src="js/vendas-telas.js?v=20261023"></script>
+  <script src="js/orcamento-lib.js?v=20261106"></script>
+  <script src="js/orcamento-arte.js?v=20261106"></script>
+  <script src="js/vendas-orcamentos.js?v=20261106"></script>
 </body>
 </html>

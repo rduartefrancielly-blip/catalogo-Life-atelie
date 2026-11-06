@@ -54,6 +54,24 @@ O admin pode ficar na tela do celular como um app (ícone escuro **"LA ADMIN"**,
 
 Na primeira vez em que abrir pelo atalho, entre com e-mail e senha. Nas próximas, você já entra direto.
 
+### Orçamentos (tela de vendas)
+
+Na página de vendas (`vendas.html`), a aba **Orçamentos** monta um orçamento e envia para a cliente pelo WhatsApp.
+
+**Antes de usar (uma vez só):** Supabase → **SQL Editor** → **New query** → cole o arquivo [`supabase/orcamentos.sql`](supabase/orcamentos.sql) → **Run**. Ele só acrescenta coisas: não mexe em produtos, clientes, vendas nem tags. Pode rodar de novo sem perder dados (rode outra vez sempre que o arquivo mudar).
+
+| Quero… | Como |
+|---|---|
+| Montar um orçamento | Nome da cliente + WhatsApp com DDD → busque os produtos do catálogo (já vêm com foto e preço) ou **+ Adicionar produto** para escrever à mão → frete → observações |
+| Dar desconto ou cobrar a mais | **Ajustar o valor** → Desconto em %, Desconto em R$ ou Acréscimo em R$. O nome (ex.: "Desconto no Pix") aparece para a cliente. Vale sobre os produtos, não sobre o frete |
+| Mudar o preço de um produto só neste orçamento | Edite o **Valor unitário** da linha (o catálogo não muda) |
+| Guardar para terminar depois | **Salvar rascunho** |
+| Colar na conversa da cliente | **Copiar orçamento** (no formulário) ou **Copiar** (na lista) → cole na conversa |
+| Mandar pelo WhatsApp | **Visualizar e enviar** → **Enviar pelo WhatsApp** (abre a conversa da cliente com a mensagem pronta) |
+| Mandar a imagem com a marca | Celular: **Enviar imagem** → escolha a conversa. Computador: **Copiar imagem** → Ctrl+V no WhatsApp Web. Ou **Baixar imagem** / **Baixar PDF** |
+| Acompanhar | A lista mostra data e situação (Rascunho, Enviado, Aprovado, Recusado). Ao copiar ou enviar, o rascunho passa para **Enviado** sozinho |
+| Editar, duplicar, excluir | Botões ✎, **Duplicar** e ✕ em cada orçamento da lista |
+
 ---
 
 ## Configuração inicial (uma vez só, ~15 min)
@@ -100,8 +118,10 @@ O que falta ou merece conferência:
 index.html, admin.html   páginas do catálogo e da área administrativa
 css/tema.css             cores e fontes da marca (troque aqui)
 js/config.js             conexão com o banco
-supabase/*.sql           banco de dados e carga inicial
+supabase/*.sql           banco de dados e carga inicial (orcamentos.sql: aba Orçamentos)
 ferramentas/site/        páginas products.json originais da loja (2 a 5)
 ferramentas/             extrator, dados da página 1 e gerador dos arquivos SQL
 vendor/supabase.js       biblioteca oficial do Supabase (v2.117.2)
+vendor/jspdf/            gerador de PDF dos orçamentos (jsPDF 2.5.2, licença MIT)
+js/orcamento-*.js, js/vendas-orcamentos.js   aba Orçamentos (contas, imagem/PDF e tela)
 ```

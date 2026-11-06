@@ -197,7 +197,7 @@
   }
 
   // ---------- abas ----------
-  const ABAS = ["home", "sales", "live", "stock", "tags", "reg", "bling"];
+  const ABAS = ["home", "sales", "orcamentos", "live", "stock", "tags", "reg", "bling"];
   function iniciarAbas() {
     $("abas").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
     document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) showTab(g.dataset.go); });
@@ -211,6 +211,7 @@
     try { sessionStorage.setItem("life-aba", nome); } catch (e) { /* sem armazenamento */ }
     if (nome === "stock" && !E.mov.length && !E.movFim) T().carregarMov(true);
     if (nome === "home") renderHome();
+    if (nome === "orcamentos" && window.LifeOrcamentos) window.LifeOrcamentos.aoAbrir();
     if (!semRolar) window.scrollTo({ top: 0 });
   }
   const T = () => window.LifeVendasTelas;
@@ -948,7 +949,7 @@
   // =====================================================================
   window.LifeVendasNucleo = {
     E, V, $, esc, sb, brl, ler, gravar, apagar, uuid, num, fmtEntrada, dia, mesChave, hoje, hora, dataHora, dataCurta, diaCurto, somaDias, mesRotulo, ehAdmin, numeroDe, pagTexto, aviso, setMsg, armConfirm,
-    traduzirErro, copiar, baixarArquivo, imprimir, abrirWhats, waNumero, miniTag, recarregar, renderTudo, showTab, ehTagProduto, corTagNome, coresTag, tagProdutoPorCor, montarPedido, enviarVenda,
+    traduzirErro, copiar, baixarArquivo, imprimir, abrirWhats, waNumero, miniTag, recarregar, renderTudo, showTab, todos, ehTagProduto, corTagNome, coresTag, tagProdutoPorCor, montarPedido, enviarVenda,
     preencherForm, novaVendaPara, resetSaleForm, startEditSale, clienteExistente, vendasDa, formatoTexto, textoDaVenda, renderTiles, renderSales, renderHome, refreshAllItemRows, PAGAMENTOS, TAG_PRODUTO,
     get currentPct() { return currentPct; },
   };
