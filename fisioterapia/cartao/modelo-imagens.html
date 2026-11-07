@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex">
+  <title>Modelo das imagens do cartão</title>
+  <!--
+    Gera as imagens do cartão. Abra com ?formato=frente | verso | vertical | link
+    (acrescente &previa=1 para marcar em vermelho os campos ainda vazios em dados.js).
+    As imagens em imagens/ são capturas desta página.
+  -->
+  <style>
+    @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; src: url(../fontes/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2"); }
+    @font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; src: url(../fontes/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2"); }
+    @font-face { font-family: "Cormorant Garamond"; font-weight: 500; src: url(../fontes/cormorant-garamond-latin-500-normal.woff2) format("woff2"); }
+    @font-face { font-family: "Cormorant Garamond"; font-weight: 600; src: url(../fontes/cormorant-garamond-latin-600-normal.woff2) format("woff2"); }
+    :root {
+      --musgo: #3D4A36; --musgo-escuro: #27311F; --marfim: #FBF8F1; --areia: #F3EDE1;
+      --dourado: #C9A961; --dourado-escuro: #A88845; --texto: #23241D; --texto-suave: #4E5146;
+      --titulo: "Cormorant Garamond", Georgia, serif; --corpo: "Atkinson Hyperlegible", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #ddd; font-family: var(--corpo); color: var(--texto); }
+    #arte { position: relative; overflow: hidden; }
+    .icone { flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .previa { outline: 3px dashed #B3261E; outline-offset: 4px; }
+    .linha-dourada { position: absolute; height: 1px; background: linear-gradient(90deg, transparent, var(--dourado), transparent); }
+    .losango { width: 7px; height: 7px; background: var(--dourado-escuro); transform: rotate(45deg); flex: none; }
+
+    /* ---------- Frente e imagem de link: a marca sobre verde-musgo ---------- */
+    .frente { background: var(--musgo); color: var(--marfim); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .frente .monograma { font-family: var(--titulo); font-weight: 500; line-height: .85; letter-spacing: -.05em; }
+    .frente .regua { background: var(--dourado); height: 1px; }
+    .frente .nome { font-family: var(--titulo); font-weight: 600; text-transform: uppercase; }
+    .frente .area { text-transform: uppercase; opacity: .92; }
+    .frente .servicos { display: flex; align-items: center; justify-content: center; gap: 18px; opacity: .9; }
+    .frente .servicos .losango { background: var(--dourado); width: 5px; height: 5px; }
+    .f-frente { width: 1050px; height: 600px; }
+    .f-frente .monograma { font-size: 168px; }
+    .f-frente .regua { width: 64px; margin: 30px 0 24px; }
+    .f-frente .nome { font-size: 34px; letter-spacing: .3em; padding-left: .3em; }
+    .f-frente .area { font-size: 15px; letter-spacing: .52em; padding-left: .52em; margin-top: 12px; }
+    .frente .mensagem { font-family: var(--titulo); font-weight: 600; }
+    .f-frente .mensagem { position: absolute; bottom: 64px; font-size: 25px; letter-spacing: .01em; }
+    .f-link { width: 1200px; height: 630px; }
+    .f-link .monograma { font-size: 176px; }
+    .f-link .regua { width: 70px; margin: 26px 0 22px; }
+    .f-link .monograma { margin-top: -40px; }
+    .f-link .nome { font-size: 40px; letter-spacing: .3em; padding-left: .3em; }
+    .f-link .area { font-size: 17px; letter-spacing: .52em; padding-left: .52em; margin-top: 12px; }
+    .f-link .mensagem { font-size: 30px; margin-top: 30px; }
+    .f-link .servicos { position: absolute; bottom: 62px; font-size: 18px; }
+
+    /* ---------- Verso: serviços e contatos sobre marfim ---------- */
+    .f-verso { width: 1050px; height: 600px; background: var(--marfim); display: grid; grid-template-columns: 1.08fr 1px 1fr; gap: 0 54px; padding: 64px 68px 86px; }
+    .f-verso .faixa { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: var(--musgo); border-top: 2px solid var(--dourado); }
+    .f-verso .divisor { background: linear-gradient(180deg, transparent, var(--dourado), transparent); }
+    .col-esq { display: flex; flex-direction: column; justify-content: center; }
+    .col-esq .monograma { font-family: var(--titulo); font-weight: 500; font-size: 44px; color: var(--musgo); letter-spacing: -.05em; line-height: 1; }
+    .col-esq .nome { font-family: var(--titulo); font-weight: 600; font-size: 44px; color: var(--musgo-escuro); line-height: 1.05; margin-top: 14px; }
+    .col-esq .prof { font-size: 18px; color: var(--texto-suave); margin-top: 8px; }
+    .col-esq .regua { width: 48px; height: 1px; background: var(--dourado-escuro); margin: 22px 0 18px; }
+    .col-esq .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 31px; line-height: 1.15; color: var(--musgo-escuro); }
+    .lista-servicos { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
+    .lista-servicos div { display: flex; align-items: center; gap: 12px; font-size: 16px; color: var(--texto-suave); }
+    .lista-servicos .losango { width: 5px; height: 5px; }
+    .col-dir { display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+    .contato { display: flex; align-items: center; gap: 16px; font-size: 21px; color: var(--texto); }
+    .contato .icone { width: 30px; height: 30px; color: var(--musgo); }
+    .contato small { display: block; font-size: 14px; color: var(--texto-suave); letter-spacing: .06em; text-transform: uppercase; }
+
+    /* ---------- Vertical (WhatsApp e redes) ---------- */
+    .f-vertical { width: 1080px; height: 1350px; background: var(--marfim); display: flex; flex-direction: column; }
+    .f-vertical .topo { position: relative; height: 640px; }
+    .f-vertical .topo .monograma { font-size: 230px; }
+    .f-vertical .topo .regua { width: 84px; margin: 40px 0 30px; }
+    .f-vertical .topo .nome { font-size: 50px; letter-spacing: .3em; padding-left: .3em; }
+    .f-vertical .topo .area { font-size: 21px; letter-spacing: .52em; padding-left: .52em; margin-top: 16px; }
+    .f-vertical .base { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 46px; padding: 0 80px 30px; }
+    .f-vertical .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 60px; line-height: 1.1; color: var(--musgo-escuro); text-align: center; }
+    .f-vertical .servicos-v { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 21px; color: var(--texto-suave); margin-top: -14px; }
+    .f-vertical .servicos-v .losango { width: 6px; height: 6px; }
+    .f-vertical .contatos { display: flex; flex-direction: column; gap: 22px; padding-top: 36px; border-top: 1px solid #DCD2BE; }
+    .f-vertical .contato { font-size: 27px; }
+    .f-vertical .faixa { height: 26px; background: var(--musgo); border-top: 2px solid var(--dourado); flex: none; }
+    .f-vertical .contato .icone { width: 34px; height: 34px; }
+  </style>
+</head>
+<body>
+  <div id="arte"></div>
+  <script src="dados.js"></script>
+  <script src="cartao.js"></script>
+  <script>
+    (function () {
+      const { C, icone, telefoneFormatado, soDigitos } = window.Cartao;
+      const q = new URLSearchParams(location.search);
+      const formato = q.get("formato") || "frente";
+      const previa = q.get("previa") === "1";
+      const arte = document.getElementById("arte");
+      const el = (tag, cls, ...filhos) => { const e = document.createElement(tag); if (cls) e.className = cls; for (const f of filhos) if (f != null) e.append(f); return e; };
+      const linha = (pos) => { const l = el("div", "linha-dourada"); Object.assign(l.style, pos); return l; };
+
+      function blocoMarca(destino) {
+        destino.append(el("div", "monograma", "LB"), el("div", "regua"), el("div", "nome", C.nome || ""), el("div", "area", C.area || ""));
+      }
+      function servicosLinha() {
+        const s = el("div", "servicos");
+        (C.servicos || []).forEach((t, i) => { if (i) s.append(el("span", "losango")); s.append(el("span", null, t)); });
+        return s;
+      }
+      function servicosLista() {
+        const s = el("div", "lista-servicos");
+        for (const t of C.servicos || []) s.append(el("div", null, el("span", "losango"), el("span", null, t)));
+        return s;
+      }
+      function contatos() {
+        const itens = [];
+        const add = (valor, vazio, ic, rotulo) => {
+          if (!valor && !previa) return;
+          const c = el("div", "contato" + (valor ? "" : " previa"), icone(ic), el("div", null, el("small", null, rotulo), valor || vazio));
+          itens.push(c);
+        };
+        const mesmoNumero = C.telefone && C.whatsapp && soDigitos(C.telefone) === soDigitos(C.whatsapp);
+        if (mesmoNumero) add(telefoneFormatado(C.telefone), "", "whatsapp", "Telefone e WhatsApp");
+        else {
+          add(C.telefone ? telefoneFormatado(C.telefone) : "", "[telefone]", "telefone", "Telefone");
+          add(C.whatsapp ? telefoneFormatado(C.whatsapp) : "", "[WhatsApp com DDD]", "whatsapp", "WhatsApp");
+        }
+        add(C.instagram ? "@" + C.instagram.replace(/^@/, "") : "", "[@ do Instagram]", "instagram", "Instagram");
+        add(C.email, "[e-mail]", "email", "E-mail");
+        const atend = [C.atendimento, C.cidade || (previa ? "[cidade]" : "")].filter(Boolean).join(" · ");
+        if (atend) itens.push(el("div", "contato" + (!C.cidade && previa ? " previa" : ""), icone("casa"), el("div", null, el("small", null, "Atendimento"), atend.replace(/^Atendimento /, "").replace(/^./, m => m.toUpperCase()))));
+        return itens;
+      }
+      const mensagem = () => C.mensagem ? el("div", "mensagem", C.mensagem) : null;
+      function servicosV() {
+        const v = el("div", "servicos-v");
+        (C.servicos || []).forEach((t, i) => { if (i) v.append(el("span", "losango")); v.append(el("span", null, t)); });
+        return v;
+      }
+      function profissao() {
+        const reg = C.registro || (previa ? "[CREFITO]" : "");
+        const p = el("div", "prof" + (!C.registro && previa ? " previa" : ""), [C.profissao, reg].filter(Boolean).join(" · "));
+        return p;
+      }
+
+      if (formato === "frente" || formato === "link") {
+        arte.className = "frente f-" + formato;
+        blocoMarca(arte);
+        arte.append(mensagem());
+        if (formato === "link") arte.append(servicosLinha());
+        arte.append(linha({ top: "34px", left: "60px", right: "60px" }), linha({ bottom: "34px", left: "60px", right: "60px" }));
+      } else if (formato === "verso") {
+        arte.className = "f-verso";
+        const esq = el("div", "col-esq", el("div", "monograma", "LB"), el("div", "nome", C.nome || ""), profissao(), el("div", "regua"), mensagem(), servicosLista());
+        const dir = el("div", "col-dir", ...contatos());
+        arte.append(esq, el("div", "divisor"), dir, el("div", "faixa"));
+      } else if (formato === "vertical") {
+        arte.className = "f-vertical";
+        const topo = el("div", "topo frente");
+        blocoMarca(topo);
+        topo.append(linha({ top: "40px", left: "80px", right: "80px" }), linha({ bottom: "40px", left: "80px", right: "80px" }));
+        const contatosEl = el("div", "contatos", ...contatos());
+        arte.append(topo, el("div", "base", mensagem(), servicosV(), contatosEl), el("div", "faixa"));
+      }
+      document.fonts.ready.then(() => { document.body.dataset.pronto = "1"; });
+    })();
+  </script>
+</body>
+</html>

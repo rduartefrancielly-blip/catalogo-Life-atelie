@@ -74,3 +74,11 @@ js/demo.js            pacientes fictícios
 vendor/jspdf/         jsPDF 4.2.1 (licença MIT)
 fontes/               Atkinson Hyperlegible e Cormorant Garamond (licença SIL OFL)
 ```
+
+## Cartão virtual
+
+Pasta `cartao/`:
+
+- `index.html` — cartão em página, com botões para WhatsApp, ligar, e-mail, salvar contato e compartilhar. Depois de publicada no GitHub Pages: `https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/fisioterapia/cartao/`
+- `imagens/` — versões em imagem para enviar direto: `cartao-vertical.png` (WhatsApp e redes, 1080×1350), `cartao-frente.png` e `cartao-verso.png` (formato cartão de visita) e `cartao-link.png` (a prévia que aparece quando o link é enviado).
+- `dados.js` — nome, mensagem, serviços e contatos em um lugar só. Para mudar algo, edite aqui e peça para gerar as imagens de novo (o modelo está em `modelo-imagens.html`).
