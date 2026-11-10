@@ -12,7 +12,9 @@
   <meta property="og:description" content="Bolsas artesanais em couro. Escolha a sua e fale com a gente pelo WhatsApp.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/">
-  <meta property="og:image" content="https://cdn.shopify.com/s/files/1/0681/1628/3443/files/AF5E81A8-B72E-44FA-A867-CD873D4B1456.jpg?v=1791023952&amp;width=1200">
+  <meta property="og:image" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/img/og-catalogo.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <!-- Atalho na tela de início do celular -->
   <link rel="manifest" href="catalogo.webmanifest">
@@ -25,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/tema.css?v=20261014b">
-  <link rel="stylesheet" href="css/catalogo.css?v=20261014b">
+  <link rel="stylesheet" href="css/catalogo.css?v=20261110">
 </head>
 <body>
   <a class="pular" href="#vitrine">Pular para os produtos</a>
@@ -45,6 +47,11 @@
   </div>
 
   <main id="vitrine" class="vitrine">
+    <!-- Link compartilhado de um modelo ou de uma peça: mostra só ela -->
+    <div class="foco" id="foco" hidden>
+      <div class="foco-texto" id="foco-texto"></div>
+      <div class="foco-botoes" id="foco-botoes"></div>
+    </div>
     <p class="contagem" id="contagem" aria-live="polite"></p>
     <div id="grade" aria-busy="true">
       <ul class="grade"><li class="esqueleto"></li><li class="esqueleto"></li><li class="esqueleto"></li><li class="esqueleto"></li></ul>
@@ -71,8 +78,25 @@
       </fieldset>
       <p class="aviso-esgotado" id="aviso-esgotado" hidden>Esgotada no momento — fale com a gente para encomendar.</p>
       <a class="botao botao-whats botao-interesse" id="botao-interesse" target="_blank" rel="noopener"></a>
+      <button class="botao botao-sec botao-compartilhar" type="button" id="botao-compartilhar"></button>
       <div class="produto-texto" id="produto-texto"></div>
     </div>
+  </dialog>
+
+  <!-- Compartilhar um modelo ou uma peça -->
+  <dialog class="compartilhar" id="compartilhar" aria-labelledby="comp-titulo">
+    <button class="fechar" type="button" data-fechar-comp aria-label="Fechar">×</button>
+    <h2 id="comp-titulo">Compartilhar</h2>
+    <p class="comp-sub" id="comp-sub"></p>
+    <p class="comp-rotulo">Mensagem que vai junto:</p>
+    <div class="comp-texto" id="comp-texto"></div>
+    <div class="comp-botoes">
+      <a class="botao botao-whats" id="comp-whats" target="_blank" rel="noopener"></a>
+      <button class="botao botao-sec" type="button" id="comp-copiar-msg">Copiar mensagem com o link</button>
+      <button class="botao botao-sec" type="button" id="comp-copiar-link">Copiar só o link</button>
+      <button class="botao botao-sec" type="button" id="comp-mais" hidden>Outras opções (Instagram, e-mail…)</button>
+    </div>
+    <p class="comp-ok" id="comp-ok" role="status" aria-live="polite"></p>
   </dialog>
 
   <!-- Foto ampliada -->
@@ -82,7 +106,7 @@
   </dialog>
 
   <script src="js/config.js?v=20261014b"></script>
-  <script src="js/comum.js?v=20261014b"></script>
-  <script src="js/catalogo.js?v=20261014b"></script>
+  <script src="js/comum.js?v=20261110"></script>
+  <script src="js/catalogo.js?v=20261110"></script>
 </body>
 </html>

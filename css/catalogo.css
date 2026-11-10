@@ -70,6 +70,21 @@
   border-bottom: 1px solid var(--linha);
 }
 .grupo-titulo small { font-family: var(--corpo); font-size: .8rem; font-weight: 400; color: var(--texto-suave); }
+.compartilhar-btn {
+  margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--linha);
+  background: var(--cartao); color: var(--texto); font-family: var(--corpo); font-size: .82rem; font-weight: 500; cursor: pointer;
+}
+.compartilhar-btn svg { width: 16px; height: 16px; fill: currentColor; flex: none; }
+@media (max-width: 380px) { .compartilhar-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .compartilhar-btn { padding: 0 12px; } }
+
+/* Link compartilhado: só um modelo ou uma peça */
+.foco { margin: 4px 0 18px; padding: 0 0 16px; border-bottom: 1px solid var(--linha); }
+.foco-titulo { font-family: var(--titulo); font-size: 2rem; font-weight: 600; line-height: 1.1; margin: 0; }
+.foco-texto p { margin: 6px 0 0; color: var(--texto-suave); }
+.foco-botoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.foco-botoes .botao { min-height: 44px; font-size: .9rem; }
+.foco-botoes svg { width: 18px; height: 18px; }
 
 .rodape { text-align: center; padding: 36px 16px 48px; color: var(--texto-suave); font-size: .9rem; }
 .rodape .marca { font-size: 1.5rem; color: var(--texto); }
@@ -117,6 +132,27 @@
 
 .aviso-esgotado { margin: 14px 0 0; color: var(--texto-suave); font-size: .9rem; }
 .botao-interesse { width: 100%; margin-top: 18px; min-height: 54px; font-size: 1.02rem; }
+.botao-compartilhar { width: 100%; margin-top: 10px; }
+.botao-compartilhar svg { width: 18px; height: 18px; }
+
+/* Janela de compartilhar */
+.compartilhar {
+  width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 22px 20px 20px;
+  border: 0; border-radius: var(--raio); background: var(--cartao); color: var(--texto); overscroll-behavior: contain;
+}
+.compartilhar::backdrop { background: rgba(30, 22, 15, .6); }
+.compartilhar .fechar { position: absolute; top: 8px; right: 8px; float: none; margin: 0; box-shadow: none; }
+.compartilhar h2 { font-family: var(--titulo); font-size: 1.6rem; font-weight: 600; line-height: 1.15; margin: 0 44px 4px 0; }
+.comp-sub { margin: 0; color: var(--texto-suave); font-size: .9rem; }
+.comp-rotulo { margin: 14px 0 6px; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--texto-suave); }
+.comp-texto {
+  white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; line-height: 1.45;
+  background: var(--fundo); border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px;
+  -webkit-user-select: text; user-select: text;
+}
+.comp-botoes { display: grid; gap: 8px; margin-top: 14px; }
+.comp-botoes .botao { width: 100%; margin: 0; }
+.comp-ok { margin: 10px 0 0; min-height: 1.4em; font-size: .88rem; color: var(--whats); }
 
 .produto-texto { margin-top: 22px; }
 .produto-texto p { margin: 0 0 12px; white-space: pre-line; }

@@ -35,6 +35,16 @@ O filtro **Com pendências** mostra os produtos com dados faltando.
 
 No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética**. Para tirar as esgotadas da vitrine: aba **Loja** → desmarque "Mostrar peças esgotadas".
 
+### Compartilhar um modelo ou uma peça
+
+No catálogo, cada modelo (ex.: **Alice**) tem o botão **Compartilhar**, ao lado do nome. Ele vale também na aba do modelo. Cada peça tem **Compartilhar esta peça** na página dela.
+
+- **Link do modelo** (`…/?modelo=Alice`): mostra só esse modelo, com as cores **disponíveis** (as esgotadas não aparecem), sem busca nem abas.
+- **Link da peça** (`…/?produto=…`): abre direto a peça, com fotos, valor e detalhes.
+- A janela já traz a mensagem pronta, com nome, cores, valor (com o "de/por" da promoção) e o link. Ela tem **Enviar pelo WhatsApp**, **Copiar mensagem com o link** e **Copiar só o link**.
+- Quem recebe sempre tem o botão **Ver o catálogo completo**.
+- A prévia do link no WhatsApp mostra o cartão da marca ([`img/og-catalogo.jpg`](img/og-catalogo.jpg)). O nome do modelo vai no texto da mensagem.
+
 ### Estoque pela lista (PDF)
 
 Na aba **Estoque**, escolha o PDF da lista de estoque ou cole o texto dela. O catálogo reconhece cada peça pelo **código** (ex.: `BLSP08`) ou pelo **modelo + cor** (aceita "preta/preto", abreviações como "vm cereja", "v. militar", "az marinho", "off", e listas separadas por título de modelo, como "CARMEM" e embaixo "Sela 2").
