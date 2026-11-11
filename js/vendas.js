@@ -275,6 +275,7 @@
   const saleTagsBox = $("saleTagsBox"), saleTagRows = $("saleTagRows"), saleTagsNote = $("saleTagsNote");
   const saleTagForceWrap = $("saleTagForceWrap"), forceTagBtn = $("forceTagBtn"), saleClientInfo = $("saleClientInfo");
   let saleValueTouched = false, saleTagsForced = false, editingId = null, formChave = uuid(), itemSeq = 0, enviando = false;
+  let doOrcamento = null; // venda que veio de um orçamento: { html, aoRegistrar(res) → texto para somar à mensagem }
 
   salePayment.innerHTML = '<option value="">Escolha…</option>' + Object.entries(PAGAMENTOS).map(([k, t]) => `<option value="${k}">${t}</option>`).join("");
   saleInstallments.innerHTML = [1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}">${n}x</option>`).join("");
@@ -587,7 +588,21 @@
     $("saleBtn").textContent = v ? "Salvar alterações" : "Registrar venda";
   }
   $("saleEditCancel").addEventListener("click", () => { resetSaleForm(); setMsg(saleMsg, ""); });
+  // ---- venda que veio de um orçamento (aba Orçamentos) ----
+  function mostrarOrcBanner() { $("saleOrcBanner").hidden = !doOrcamento; $("saleOrcTexto").innerHTML = doOrcamento ? doOrcamento.html : ""; }
+  function lancarDoOrcamento(d, info) {
+    resetSaleForm();
+    preencherForm(d);
+    doOrcamento = info;
+    if (info && info.chave) formChave = info.chave; // o mesmo orçamento nunca vira duas vendas
+    mostrarOrcBanner();
+    showTab("sales");
+    salePayment.focus();
+  }
+  $("saleOrcCancel").addEventListener("click", () => { resetSaleForm(); setMsg(saleMsg, ""); });
+
   function resetSaleForm() {
+    doOrcamento = null; mostrarOrcBanner();
     setSaleEditUI(null);
     formChave = uuid();
     saleClient.value = "";
@@ -602,6 +617,7 @@
   }
   // preenche o formulário (usado ao revisar uma venda da live, repetir ou editar)
   function preencherForm(d) {
+    doOrcamento = null; mostrarOrcBanner(); // quem precisar (orçamento) liga de novo depois
     saleClient.value = d.nome || "";
     saleItemsEl.innerHTML = "";
     (d.linhas && d.linhas.length ? d.linhas : [{}]).forEach((l) => addItemRow(l));
@@ -726,6 +742,7 @@
     const d = lerFormulario();
     if (!d) return;
     const eraEdicao = editingId;
+    const orc = eraEdicao ? null : doOrcamento;
     enviando = true; $("saleBtn").disabled = true;
     try {
       const pedido = montarPedido(d, formChave, "manual");
@@ -743,6 +760,7 @@
       renderTudo();
       setMsg(saleMsg, msg, "ok");
       saleClient.focus();
+      if (orc) { const extra = await Promise.resolve(orc.aoRegistrar(res || {})).catch(() => ""); if (extra) setMsg(saleMsg, msg + " " + extra, "ok"); }
     } catch (e) {
       setMsg(saleMsg, traduzirErro(e), "warn");
       recarregar(["produtos"]).then(() => { refreshAllItemRows(); }).catch(() => {});
@@ -950,7 +968,7 @@
   window.LifeVendasNucleo = {
     E, V, $, esc, sb, brl, ler, gravar, apagar, uuid, num, fmtEntrada, dia, mesChave, hoje, hora, dataHora, dataCurta, diaCurto, somaDias, mesRotulo, ehAdmin, numeroDe, pagTexto, aviso, setMsg, armConfirm,
     traduzirErro, copiar, baixarArquivo, imprimir, abrirWhats, waNumero, miniTag, recarregar, renderTudo, showTab, todos, ehTagProduto, corTagNome, coresTag, tagProdutoPorCor, montarPedido, enviarVenda,
-    preencherForm, novaVendaPara, resetSaleForm, startEditSale, clienteExistente, vendasDa, formatoTexto, textoDaVenda, renderTiles, renderSales, renderHome, refreshAllItemRows, PAGAMENTOS, TAG_PRODUTO,
+    preencherForm, novaVendaPara, resetSaleForm, lancarDoOrcamento, startEditSale, clienteExistente, vendasDa, formatoTexto, textoDaVenda, renderTiles, renderSales, renderHome, refreshAllItemRows, PAGAMENTOS, TAG_PRODUTO,
     get currentPct() { return currentPct; },
   };
 

@@ -596,3 +596,21 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 .orc-folha-obs p{margin:6px 0 0;font-size:0.9rem;white-space:pre-wrap;overflow-wrap:anywhere;}
 .orc-folha-rodape{margin-top:22px;padding-top:14px;text-align:center;font-size:0.78rem;color:#7B6B5D;position:relative;}
 .orc-folha-rodape::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,#A5834B,transparent);}
+
+/* Orçamentos: cadastro da cliente e venda */
+.orc-cadastro{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:-6px;font-size:0.86rem;}
+.orc-cadastro:empty{display:none;}
+.orc-cad-ok{color:var(--ink-soft);}
+.orc-cad-dica{color:var(--ink-soft);font-size:0.8rem;}
+.orc-venda-linha{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;}
+.orc-venda-info{font-size:0.86rem;color:var(--ink-soft);}
+.orc-venda-info b{color:var(--ink);}
+
+/* Cadastro: colar os dados que a cliente mandou */
+.colar-cliente{margin:4px 0 14px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:color-mix(in srgb, var(--paper-raised) 70%, transparent);}
+.colar-cliente label{margin-top:0;}
+.colar-cliente textarea{min-height:84px;}
+.colar-cliente .field-hint{margin-top:6px;}
+@keyframes preenchido{from{background:color-mix(in srgb, var(--sage) 28%, var(--paper-raised));}to{background:var(--paper-raised);}}
+#dlgCliente .preenchido{animation:preenchido 1.6s ease-out;}
+@media (prefers-reduced-motion: reduce){#dlgCliente .preenchido{animation:none;}}

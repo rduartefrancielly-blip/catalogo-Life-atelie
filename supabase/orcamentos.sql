@@ -56,6 +56,10 @@ alter table public.orcamentos drop constraint if exists orcamentos_ajuste_valor_
 alter table public.orcamentos add constraint orcamentos_ajuste_valor_check
   check (ajuste_valor >= 0 and (ajuste_tipo <> 'desconto_pct' or ajuste_valor <= 100));
 
+-- Venda lançada a partir do orçamento (aprovado e pago): número da venda e quando foi lançada
+alter table public.orcamentos add column if not exists venda_numero integer;
+alter table public.orcamentos add column if not exists venda_em timestamptz;
+
 create or replace function public.orcamento_atualizado() returns trigger
 language plpgsql as $$
 begin

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261106">
+  <link rel="stylesheet" href="css/vendas.css?v=20261111">
 </head>
 <body>
   <!-- Entrar -->
@@ -91,6 +91,10 @@
     <!-- ============ Vendas ============ -->
     <section id="panelSales" class="panel">
       <div class="card">
+        <div id="saleOrcBanner" class="editing-banner" hidden>
+          <span id="saleOrcTexto"></span>
+          <button type="button" class="btn ghost" id="saleOrcCancel">Cancelar</button>
+        </div>
         <div id="saleEditBanner" class="editing-banner" hidden>
           <span>Editando a venda de <b id="saleEditName"></b></span>
           <button type="button" class="btn ghost" id="saleEditCancel">Cancelar</button>
@@ -214,6 +218,7 @@
             <input type="tel" id="orcWhats" inputmode="tel" placeholder="(31) 99999-9999" autocomplete="off" maxlength="25">
             <div class="field-hint" id="orcWhatsHint"></div>
           </div>
+          <div class="f-6 orc-cadastro" id="orcCadastro" aria-live="polite"></div>
 
           <div class="f-6">
             <label for="orcBusca">Produtos</label>
@@ -465,6 +470,11 @@
   <dialog class="janela" id="dlgCliente" aria-labelledby="dclTitulo">
     <form id="formCliente">
       <h2 id="dclTitulo">Cliente</h2>
+      <div class="colar-cliente">
+        <label for="dclColar">Colar os dados que a cliente mandou <span class="opcional">(opcional)</span></label>
+        <textarea id="dclColar" rows="4" placeholder="Cole aqui a mensagem com nome, CPF, endereço, CEP, telefone e e-mail. Os campos abaixo são preenchidos sozinhos."></textarea>
+        <div class="field-hint" id="dclColarMsg" aria-live="polite"></div>
+      </div>
       <label for="dclNome">Nome</label><input type="text" id="dclNome" required>
       <div class="duas"><div><label for="dclTelefone">Telefone</label><input type="tel" id="dclTelefone"></div><div><label for="dclDocumento">CPF / CNPJ</label><input type="text" id="dclDocumento"></div></div>
       <label for="dclEmail">E-mail</label><input type="email" id="dclEmail">
@@ -492,6 +502,11 @@
       <select id="orcStatusPrevia" class="status-select"></select>
       <button type="button" class="btn ghost small" id="orcEditarPrevia">Editar orçamento</button>
     </div>
+    <div class="orc-venda-linha" id="orcVendaLinha">
+      <button type="button" class="btn ghost small" id="orcDadosCliente">Dados da cliente</button>
+      <button type="button" class="btn small" id="orcVenderBtn" hidden>Lançar venda</button>
+      <span class="orc-venda-info" id="orcVendaInfo"></span>
+    </div>
     <div class="orc-acoes">
       <button type="button" class="btn big" id="orcWhatsBtn">Enviar pelo WhatsApp</button>
       <button type="button" class="btn ghost" id="orcCopiarTexto">Copiar texto</button>
@@ -512,10 +527,11 @@
   <script src="js/config.js?v=20261022"></script>
   <script src="js/comum.js?v=20261022"></script>
   <script src="js/vendas-lib.js?v=20261023"></script>
-  <script src="js/vendas.js?v=20261106"></script>
-  <script src="js/vendas-telas.js?v=20261023"></script>
-  <script src="js/orcamento-lib.js?v=20261106"></script>
+  <script src="js/cliente-colar.js?v=20261111"></script>
+  <script src="js/vendas.js?v=20261111"></script>
+  <script src="js/vendas-telas.js?v=20261111"></script>
+  <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
-  <script src="js/vendas-orcamentos.js?v=20261106"></script>
+  <script src="js/vendas-orcamentos.js?v=20261111"></script>
 </body>
 </html>

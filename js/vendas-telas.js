@@ -350,18 +350,72 @@
   $("fmtItem").addEventListener("input", salvarFormato);
   $("fmtDefault").addEventListener("click", () => { N.apagar("life-formato-texto-v2"); $("fmtModelo").value = V.MODELO_TEXTO; $("fmtItem").value = V.MODELO_ITEM; renderPrevia(); });
 
-  let clienteEm = null;
-  function abrirCliente(c) {
+  let clienteEm = null, aoSalvarCliente = null;
+  const campoEl = (k) => $(k === "nome" ? "dclNome" : k === "observacoes" ? "dclObs" : "dcl" + k.charAt(0).toUpperCase() + k.slice(1));
+  // op: { prefill: { nome, telefone }, colar: true (cursor no campo de colar), aoSalvar(dados) }
+  function abrirCliente(c, op) {
+    op = op || {};
     clienteEm = c || null;
+    aoSalvarCliente = op.aoSalvar || null;
     $("dclTitulo").textContent = c ? "Editar cliente" : "Nova cliente";
     $("dclNome").value = c ? c.nome : "";
-    CAMPOS.forEach((k) => { $("dcl" + k.charAt(0).toUpperCase() + k.slice(1)).value = c ? c[k] || "" : ""; });
+    CAMPOS.forEach((k) => { campoEl(k).value = c ? c[k] || "" : ""; });
     $("dclObs").value = c ? c.observacoes || "" : "";
+    const pre = op.prefill || {};
+    if (!$("dclNome").value.trim() && pre.nome) $("dclNome").value = pre.nome;
+    if (!$("dclTelefone").value.trim() && pre.telefone) $("dclTelefone").value = pre.telefone;
+    $("dclColar").value = "";
+    $("dclColarMsg").textContent = ""; $("dclColarMsg").className = "field-hint";
+    $("dlgCliente").querySelectorAll(".preenchido").forEach((el) => el.classList.remove("preenchido"));
     $("dclErro").textContent = "";
     $("dlgCliente").showModal();
+    if (op.colar) $("dclColar").focus();
   }
+  $("dlgCliente").addEventListener("close", () => { aoSalvarCliente = null; });
+
+  // ---- colar a mensagem com os dados: preenche os campos sozinho ----
+  const NOMES_CAMPO = { nome: "nome", telefone: "telefone", documento: "CPF/CNPJ", email: "e-mail", cep: "CEP", rua: "rua", numero: "número", complemento: "complemento", bairro: "bairro", cidade: "cidade", uf: "UF", observacoes: "observações" };
+  function marcar(el, valor) { el.value = valor; el.classList.remove("preenchido"); void el.offsetWidth; el.classList.add("preenchido"); }
+  let colarTimer = null;
+  function lerColado() {
+    const texto = $("dclColar").value.trim(), msg = $("dclColarMsg");
+    if (!texto) { msg.textContent = ""; return; }
+    const { campos, naoEntendi } = window.LerCliente.ler(texto);
+    const achados = window.LerCliente.CAMPOS.filter((k) => campos[k] != null); // na ordem da janela
+    achados.forEach((k) => marcar(campoEl(k), k === "observacoes" ? [campoEl(k).value.trim(), campos[k]].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ") : campos[k]));
+    msg.className = "field-hint" + (achados.length ? " ok" : " warn");
+    msg.textContent = achados.length
+      ? "Preenchi: " + achados.map((k) => NOMES_CAMPO[k]).join(", ") + ". Confira antes de salvar." + (naoEntendi.length ? " Não entendi: \"" + naoEntendi.join("\" / \"") + "\"." : "")
+      : "Não reconheci os dados nessa mensagem. Preencha os campos abaixo.";
+    completarPeloCep();
+  }
+  $("dclColar").addEventListener("input", () => { clearTimeout(colarTimer); colarTimer = setTimeout(lerColado, 350); });
+  $("dclColar").addEventListener("paste", () => { clearTimeout(colarTimer); setTimeout(lerColado, 0); });
+
+  // CEP: completa rua, bairro, cidade e UF que estiverem vazios (ViaCEP, serviço gratuito dos Correios)
+  let cepConsultado = "";
+  async function completarPeloCep() {
+    const cep = V.soDigitos($("dclCep").value);
+    const faltam = ["rua", "bairro", "cidade", "uf"].filter((k) => !campoEl(k).value.trim());
+    if (cep.length !== 8 || !faltam.length || cep === cepConsultado) return;
+    cepConsultado = cep;
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+      const r = await fetch("https://viacep.com.br/ws/" + cep + "/json/", { signal: ctl.signal });
+      clearTimeout(t);
+      const d = await r.json();
+      if (!d || d.erro) return;
+      const de = { rua: d.logradouro, bairro: d.bairro, cidade: d.localidade, uf: d.uf };
+      const feitos = faltam.filter((k) => de[k] && !campoEl(k).value.trim());
+      feitos.forEach((k) => marcar(campoEl(k), de[k]));
+      if (feitos.length) { const m = $("dclColarMsg"); m.textContent = (m.textContent ? m.textContent + " " : "") + "Completei pelo CEP: " + feitos.map((k) => NOMES_CAMPO[k]).join(", ") + "."; m.className = "field-hint ok"; }
+    } catch (_) { cepConsultado = ""; /* sem internet ou CEP não achado: segue sem completar */ }
+  }
+  $("dclCep").addEventListener("change", completarPeloCep);
+
   $("formCliente").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const aoSalvar = aoSalvarCliente;
     const dados = { nome: $("dclNome").value.trim() };
     CAMPOS.forEach((k) => { dados[k] = $("dcl" + k.charAt(0).toUpperCase() + k.slice(1)).value.trim() || null; });
     if (!dados.nome) { $("dclErro").textContent = "O nome não pode ficar vazio."; return; }
@@ -371,6 +425,7 @@
     if (r.error) { $("dclErro").textContent = /duplicate|unique/i.test(r.error.message) ? "Já existe outra cliente com esse nome." : N.traduzirErro(r.error); return; }
     $("dlgCliente").close();
     await N.recarregar(["clientes", "vendas"]); N.renderTudo(); N.aviso("Cliente salva.");
+    if (aoSalvar) aoSalvar(dados);
   });
   $("formAjustes").addEventListener("submit", async (e) => {
     e.preventDefault();

@@ -6,6 +6,7 @@
   const L = window.OrcamentoLib;
   const A = window.OrcamentoArte;
   const { E, V, $, esc, sb } = N;
+  const T = () => window.LifeVendasTelas;
   const TZ = "America/Sao_Paulo";
   const TABELA = "orcamentos";
   const PILL = { rascunho: "neutro", enviado: "wait", aprovado: "ok", recusado: "out" };
@@ -195,6 +196,7 @@
     $("orcSalvar").textContent = editando && editando.status !== "rascunho" ? "Salvar alterações" : "Salvar rascunho";
     sujo = modo === "copia";
     atualizarWhatsHint();
+    atualizarCadastro();
     atualizarTotais();
     msg("");
   }
@@ -214,7 +216,53 @@
     const c = clientePorNome(e.target.value);
     if (c && c.telefone && !$("orcWhats").value.trim()) { $("orcWhats").value = L.whatsBonito(c.telefone); atualizarWhatsHint(); }
     marcarSujo();
+    atualizarCadastro();
   });
+
+  // ---------- cadastro da cliente (CPF e endereço, para lançar a venda) ----------
+  const temCadastro = (c) => !!c && ["documento", "cep", "rua", "cidade"].some((k) => String(c[k] || "").trim());
+  const resumoCadastro = (c) => [c.documento ? "CPF/CNPJ " + c.documento : "", V.enderecoLinha(c)].filter(Boolean).join(" · ");
+  function atualizarCadastro() {
+    const nome = $("orcCliente").value.trim(), el = $("orcCadastro");
+    if (!nome) { el.innerHTML = ""; return; }
+    const c = clientePorNome(nome);
+    el.innerHTML = temCadastro(c)
+      ? `<span class="orc-cad-ok">✓ No cadastro: ${esc(resumoCadastro(c))}</span><button type="button" class="link-btn" data-cad>editar</button>`
+      : `<button type="button" class="btn ghost small" data-cad>Colar dados da cliente</button><span class="orc-cad-dica">CPF e endereço que ela mandar: entram no cadastro para a venda.</span>`;
+  }
+  $("orcCadastro").addEventListener("click", (e) => { if (e.target.closest("[data-cad]")) abrirCadastroDoForm(); });
+  function abrirCadastroDoForm() {
+    const nome = $("orcCliente").value.trim(), w = $("orcWhats").value;
+    T().abrirCliente(clientePorNome(nome), {
+      prefill: { nome, telefone: L.whatsDigitos(w) ? L.whatsBonito(w) : w.trim() }, colar: true,
+      aoSalvar: (d) => {
+        if (d.nome && d.nome !== $("orcCliente").value.trim()) { $("orcCliente").value = d.nome; marcarSujo(); }
+        if (!L.whatsDigitos($("orcWhats").value) && L.whatsDigitos(d.telefone)) { $("orcWhats").value = L.whatsBonito(d.telefone); marcarSujo(); }
+        atualizarWhatsHint(); atualizarCadastro();
+      },
+    });
+  }
+  // do orçamento já salvo (prévia): se o nome ou o WhatsApp mudarem no cadastro, o orçamento acompanha
+  function abrirCadastroDoOrcamento(o) {
+    T().abrirCliente(clientePorNome(o.cliente_nome), {
+      prefill: { nome: o.cliente_nome, telefone: o.cliente_whatsapp ? L.whatsBonito(o.cliente_whatsapp) : "" }, colar: true,
+      aoSalvar: async (d) => {
+        const dados = {};
+        if (d.nome && d.nome !== o.cliente_nome) dados.cliente_nome = d.nome;
+        if (!L.whatsDigitos(o.cliente_whatsapp) && L.whatsDigitos(d.telefone)) dados.cliente_whatsapp = L.whatsDigitos(d.telefone);
+        if (Object.keys(dados).length) {
+          try {
+            const salvo = await gravar(dados, o.id);
+            if (atual && atual.id === o.id) { atual = salvo; $("orcPrevia").innerHTML = previaHtml(salvo); atualizarVendaPrevia(salvo); }
+            if (editando && editando.id === o.id && !sujo) preencher(salvo, "editar");
+            renderLista();
+          } catch (e) { N.aviso("A cliente foi salva, mas não consegui atualizar o orçamento: " + N.traduzirErro(e), true); }
+        }
+        atualizarCadastro();
+        if (atual && atual.id === o.id) N.setMsg($("orcPreviaMsg"), "Dados de " + d.nome + " salvos no cadastro.", "ok");
+      },
+    });
+  }
   $("orcWhats").addEventListener("input", (e) => { e.target.removeAttribute("aria-invalid"); atualizarWhatsHint(); marcarSujo(); });
   $("orcWhats").addEventListener("blur", (e) => { if (L.whatsDigitos(e.target.value)) e.target.value = L.whatsBonito(e.target.value); });
   $("orcFrete").addEventListener("input", (e) => { e.target.removeAttribute("aria-invalid"); marcarSujo(); atualizarTotais(); });
@@ -365,7 +413,7 @@
   // LISTA DE ORÇAMENTOS
   // =====================================================================
   const resumoItens = (o) => (o.itens || []).map((it) => L.nomeDoItem(it) + (it.quantidade > 1 ? " × " + it.quantidade : "")).join("; ");
-  const palha = (o) => V.norm([o.cliente_nome, o.cliente_whatsapp, "#" + o.numero, "nº " + o.numero, String(o.numero), L.statusNome(o.status), resumoItens(o), o.observacoes].join(" "));
+  const palha = (o) => V.norm([o.cliente_nome, o.cliente_whatsapp, "#" + o.numero, "nº " + o.numero, String(o.numero), L.statusNome(o.status), resumoItens(o), o.observacoes, o.venda_numero ? "vendido venda " + o.venda_numero : ""].join(" "));
   function renderLista() {
     const contagem = { todos: O.lista.length };
     L.STATUS.forEach((s) => { contagem[s.id] = O.lista.filter((o) => o.status === s.id).length; });
@@ -402,6 +450,7 @@
             <button type="button" class="btn ghost" data-act="ver">Ver e enviar</button>
             <button type="button" class="btn ghost" data-act="copiar">Copiar</button>
             <button type="button" class="btn ghost" data-act="duplicar">Duplicar</button>
+            ${o.venda_numero ? `<span class="pill ok">Venda nº ${esc(String(o.venda_numero))}</span>` : o.status === "aprovado" ? '<button type="button" class="btn" data-act="vender">Lançar venda</button>' : ""}
           </div>
         </div>
         <div class="client-actions">
@@ -428,6 +477,7 @@
     if (act === "ver") abrirPrevia(o);
     else if (act === "copiar") copiarTexto(o, $("orcListaMsg"));
     else if (act === "editar") { if (!podeDescartar()) return; preencher(o, "editar"); irParaFormulario(); }
+    else if (act === "vender") lancarVenda(o);
     else if (act === "duplicar") {
       if (!podeDescartar()) return;
       preencher(Object.assign({}, o, { status: "rascunho" }), "copia");
@@ -460,7 +510,7 @@
     try {
       const salvo = await gravar(dados, o.id);
       if (editando && editando.id === o.id) { editando = salvo; if (!sujo) preencher(salvo, "editar"); }
-      if (atual && atual.id === o.id) { atual = salvo; $("orcStatusPrevia").value = salvo.status; }
+      if (atual && atual.id === o.id) { atual = salvo; $("orcStatusPrevia").value = salvo.status; atualizarVendaPrevia(salvo); }
       renderLista();
       if (!silencioso) N.aviso("Orçamento " + L.numeroTexto(o.numero) + ": " + L.statusNome(status) + ".");
       return salvo;
@@ -534,6 +584,7 @@
         ? "Mais prático no celular: \"Enviar pelo WhatsApp\" manda o texto. Para mandar a imagem, toque em \"Enviar imagem\" e escolha a conversa da cliente."
         : "Mais prático no computador: \"Copiar imagem\" (ou \"Copiar texto\") e cole com Ctrl+V na conversa da cliente no WhatsApp Web.";
     N.setMsg($("orcPreviaMsg"), "");
+    atualizarVendaPrevia(o);
     if (!dlg.open) dlg.showModal();
     dlg.scrollTop = 0;
   }
@@ -598,6 +649,61 @@
   $("orcStatusPrevia").addEventListener("change", async (e) => { if (atual) await mudarStatus(atual, e.target.value); });
 
   // =====================================================================
+  // VENDA: orçamento aprovado e pago → vira venda (pelo formulário de vendas, que baixa o estoque e calcula a comissão)
+  // =====================================================================
+  function atualizarVendaPrevia(o) {
+    const vendido = !!o.venda_numero;
+    $("orcVenderBtn").hidden = vendido || o.status !== "aprovado";
+    $("orcVendaInfo").innerHTML = vendido
+      ? `Venda <b>nº ${esc(String(o.venda_numero))}</b> lançada${o.venda_em ? " em " + esc(L.dataBR(o.venda_em)) : ""} ✓`
+      : o.status === "enviado" ? "Quando ela aprovar, mude a situação para Aprovado para lançar a venda." : "";
+  }
+  $("orcDadosCliente").addEventListener("click", () => atual && abrirCadastroDoOrcamento(atual));
+  $("orcVenderBtn").addEventListener("click", () => atual && lancarVenda(atual));
+
+  // item do orçamento → linha do formulário de vendas (produto do estoque + cor)
+  function linhaDeVenda(it) {
+    const doProduto = it.produto_id ? E.itens.filter((i) => i.produto_id === it.produto_id) : [];
+    const item = doProduto.length > 1 ? doProduto.find((i) => V.chaveCor(i.cor) === V.chaveCor(it.cor)) || null : doProduto[0] || null;
+    const qtd = Number(it.quantidade) || 1;
+    if (item) return item.ehTag ? { produto: N.TAG_PRODUTO, cor: N.corTagNome(item.cor) || item.cor, qtd } : { produto: item.modelo, cor: item.cor, qtd };
+    const s = V.separarNome(it.nome); // escrito à mão: "Bolsa Alice" → "Alice"
+    return { produto: s.modelo || it.nome, cor: it.cor || s.cor || "", qtd };
+  }
+  function dadosDaVenda(o) {
+    const c = L.contaDe(o);
+    const obs = ["Orçamento " + L.numeroTexto(o.numero)];
+    if (c.ajuste.tipo) obs.push(c.ajuste.rotulo + ": " + L.valorAjuste(c.ajuste.valor));
+    if (c.frete) obs.push("Frete " + L.brl(c.frete) + " (fora do valor da venda)");
+    if (o.observacoes) obs.push(String(o.observacoes).replace(/\s+/g, " ").trim());
+    return {
+      nome: o.cliente_nome, linhas: (o.itens || []).filter((it) => !L.itemVazio(it)).map(linhaDeVenda),
+      valor: L.arred(c.total - c.frete), pagamento: "", parcelas: 1, pct: N.currentPct(), obs: obs.join(" · ").slice(0, 500),
+    };
+  }
+  function lancarVenda(o) {
+    if (o.venda_numero) return;
+    if (editando && editando.id === o.id && sujo) { N.aviso("Salve as alterações do orçamento antes de lançar a venda.", true); return; }
+    if (dlg.open) dlg.close();
+    const c = L.contaDe(o);
+    const html = `Venda do orçamento <b>${esc(L.numeroTexto(o.numero))}</b> de <b>${esc(o.cliente_nome)}</b>: confira, escolha a forma de pagamento e toque em <b>Registrar venda</b>.` +
+      (c.frete ? ` O frete (${esc(L.brl(c.frete))}) ficou fora do valor, na observação.` : "");
+    N.lancarDoOrcamento(dadosDaVenda(o), { html, chave: o.id, aoRegistrar: (res) => marcarVendido(o, res) });
+  }
+  async function marcarVendido(o, res) {
+    const numero = res && res.numero;
+    if (!numero) return "";
+    try {
+      await gravar({ venda_numero: numero, venda_em: new Date().toISOString() }, o.id);
+      renderLista();
+      return "Orçamento " + L.numeroTexto(o.numero) + " marcado como vendido.";
+    } catch (e) {
+      if (/venda_numero|venda_em|column|schema cache/i.test(String((e && e.message) || ""))) return "Para o orçamento ficar marcado como vendido, rode de novo o arquivo supabase/orcamentos.sql no Supabase.";
+      return "Não consegui marcar o orçamento como vendido: " + N.traduzirErro(e);
+    }
+  }
+
+  // =====================================================================
   // INÍCIO DA ABA
   // =====================================================================
   let primeiraVez = true;
@@ -609,6 +715,7 @@
       carregarLoja().catch(() => {});
       carregar();
     }
+    atualizarCadastro(); // o cadastro pode ter mudado em outra aba
   }
   // não deixa sair da página com um orçamento sem salvar
   window.addEventListener("beforeunload", (e) => { if (sujo) { e.preventDefault(); e.returnValue = ""; } });
