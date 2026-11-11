@@ -60,7 +60,7 @@
     .col-esq .nome { font-family: var(--titulo); font-weight: 600; font-size: 44px; color: var(--musgo-escuro); line-height: 1.05; margin-top: 14px; }
     .col-esq .prof { font-size: 18px; color: var(--texto-suave); margin-top: 8px; }
     .col-esq .regua { width: 48px; height: 1px; background: var(--dourado-escuro); margin: 22px 0 18px; }
-    .col-esq .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 31px; line-height: 1.15; color: var(--musgo-escuro); }
+    .col-esq .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 31px; line-height: 1.15; color: var(--musgo-escuro); text-wrap: balance; }
     .lista-servicos { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
     .lista-servicos div { display: flex; align-items: center; gap: 12px; font-size: 16px; color: var(--texto-suave); }
     .lista-servicos .losango { width: 5px; height: 5px; }
@@ -77,7 +77,7 @@
     .f-vertical .topo .nome { font-size: 50px; letter-spacing: .3em; padding-left: .3em; }
     .f-vertical .topo .area { font-size: 21px; letter-spacing: .52em; padding-left: .52em; margin-top: 16px; }
     .f-vertical .base { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 46px; padding: 0 80px 30px; }
-    .f-vertical .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 60px; line-height: 1.1; color: var(--musgo-escuro); text-align: center; }
+    .f-vertical .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 60px; line-height: 1.1; color: var(--musgo-escuro); text-align: center; text-wrap: balance; }
     .f-vertical .servicos-v { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 21px; color: var(--texto-suave); margin-top: -14px; }
     .f-vertical .servicos-v .losango { width: 6px; height: 6px; }
     .f-vertical .contatos { display: flex; flex-direction: column; gap: 22px; padding-top: 36px; border-top: 1px solid #DCD2BE; }
@@ -148,11 +148,11 @@
         arte.className = "frente f-" + formato;
         blocoMarca(arte);
         arte.append(mensagem());
-        if (formato === "link") arte.append(servicosLinha());
+        if (formato === "link" && (C.servicos || []).length) arte.append(servicosLinha());
         arte.append(linha({ top: "34px", left: "60px", right: "60px" }), linha({ bottom: "34px", left: "60px", right: "60px" }));
       } else if (formato === "verso") {
         arte.className = "f-verso";
-        const esq = el("div", "col-esq", el("div", "monograma", "LB"), el("div", "nome", C.nome || ""), profissao(), el("div", "regua"), mensagem(), servicosLista());
+        const esq = el("div", "col-esq", el("div", "monograma", "LB"), el("div", "nome", C.nome || ""), profissao(), el("div", "regua"), mensagem(), (C.servicos || []).length ? servicosLista() : null);
         const dir = el("div", "col-dir", ...contatos());
         arte.append(esq, el("div", "divisor"), dir, el("div", "faixa"));
       } else if (formato === "vertical") {
@@ -161,7 +161,7 @@
         blocoMarca(topo);
         topo.append(linha({ top: "40px", left: "80px", right: "80px" }), linha({ bottom: "40px", left: "80px", right: "80px" }));
         const contatosEl = el("div", "contatos", ...contatos());
-        arte.append(topo, el("div", "base", mensagem(), servicosV(), contatosEl), el("div", "faixa"));
+        arte.append(topo, el("div", "base", mensagem(), (C.servicos || []).length ? servicosV() : null, contatosEl), el("div", "faixa"));
       }
       document.fonts.ready.then(() => { document.body.dataset.pronto = "1"; });
     })();

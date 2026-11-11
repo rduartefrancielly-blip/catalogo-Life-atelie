@@ -6,9 +6,9 @@ window.CARTAO = {
   nome: "Letícia Bernucci",
   area: "Fisioterapia",
   profissao: "Fisioterapeuta",
-  mensagem: "Cuidado que respeita o seu corpo.",
+  mensagem: "Liberação miofascial, instrumental e ventosaterapia",
   registro: "",            // ex.: "CREFITO-4 000000-F"
-  servicos: ["Liberação miofascial manual", "Terapia instrumental", "Ventosaterapia"],
+  servicos: [],            // lista opcional de técnicas, mostrada abaixo da mensagem
   atendimento: "Atendimento domiciliar",
   cidade: "",              // ex.: "Belo Horizonte · MG"
   telefone: "31995259528", // só números, com DDD

@@ -49,7 +49,7 @@
       C.email ? "EMAIL;TYPE=INTERNET:" + C.email : "",
       C.instagram ? "URL:" + linkInstagram() : "",
       C.link ? "URL:" + C.link : "",
-      "NOTE:" + esc([(C.servicos || []).join(", "), C.atendimento, C.cidade].filter(Boolean).join(" · ")),
+      "NOTE:" + esc([C.mensagem, (C.servicos || []).join(", "), C.atendimento, C.cidade].filter(Boolean).join(" · ")),
       "END:VCARD"
     ].filter(Boolean);
     return linhas.join("\r\n") + "\r\n";
