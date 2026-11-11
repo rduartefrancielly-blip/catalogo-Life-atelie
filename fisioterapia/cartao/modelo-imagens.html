@@ -33,8 +33,10 @@
     .frente .regua { background: var(--dourado); height: 1px; }
     .frente .nome { font-family: var(--titulo); font-weight: 600; text-transform: uppercase; }
     .frente .area { text-transform: uppercase; opacity: .92; }
-    .frente .servicos { display: flex; align-items: center; justify-content: center; gap: 18px; opacity: .9; }
-    .frente .servicos .losango { background: var(--dourado); width: 5px; height: 5px; }
+    .frente .servicos { display: flex; align-items: center; justify-content: center; gap: 34px; }
+    .frente .topico { display: flex; align-items: center; gap: 12px; }
+    .frente .servicos .losango { background: var(--dourado); width: 6px; height: 6px; }
+    .f-frente .servicos { position: absolute; bottom: 62px; font-size: 19px; }
     .f-frente { width: 1050px; height: 600px; }
     .f-frente .monograma { font-size: 168px; }
     .f-frente .regua { width: 64px; margin: 30px 0 24px; }
@@ -49,7 +51,7 @@
     .f-link .nome { font-size: 40px; letter-spacing: .3em; padding-left: .3em; }
     .f-link .area { font-size: 17px; letter-spacing: .52em; padding-left: .52em; margin-top: 12px; }
     .f-link .mensagem { font-size: 30px; margin-top: 30px; }
-    .f-link .servicos { position: absolute; bottom: 62px; font-size: 18px; }
+    .f-link .servicos { position: absolute; bottom: 62px; font-size: 21px; }
 
     /* ---------- Verso: serviços e contatos sobre marfim ---------- */
     .f-verso { width: 1050px; height: 600px; background: var(--marfim); display: grid; grid-template-columns: 1.08fr 1px 1fr; gap: 0 54px; padding: 64px 68px 86px; }
@@ -61,9 +63,9 @@
     .col-esq .prof { font-size: 18px; color: var(--texto-suave); margin-top: 8px; }
     .col-esq .regua { width: 48px; height: 1px; background: var(--dourado-escuro); margin: 22px 0 18px; }
     .col-esq .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 31px; line-height: 1.15; color: var(--musgo-escuro); text-wrap: balance; }
-    .lista-servicos { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
-    .lista-servicos div { display: flex; align-items: center; gap: 12px; font-size: 16px; color: var(--texto-suave); }
-    .lista-servicos .losango { width: 5px; height: 5px; }
+    .lista-servicos { display: flex; flex-direction: column; gap: 12px; }
+    .lista-servicos div { display: flex; align-items: center; gap: 16px; font-family: var(--titulo); font-weight: 600; font-size: 30px; line-height: 1.15; color: var(--musgo-escuro); }
+    .lista-servicos .losango { width: 8px; height: 8px; }
     .col-dir { display: flex; flex-direction: column; justify-content: center; gap: 22px; }
     .contato { display: flex; align-items: center; gap: 16px; font-size: 21px; color: var(--texto); }
     .contato .icone { width: 30px; height: 30px; color: var(--musgo); }
@@ -78,6 +80,9 @@
     .f-vertical .topo .area { font-size: 21px; letter-spacing: .52em; padding-left: .52em; margin-top: 16px; }
     .f-vertical .base { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 46px; padding: 0 80px 30px; }
     .f-vertical .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 60px; line-height: 1.1; color: var(--musgo-escuro); text-align: center; text-wrap: balance; }
+    .f-vertical .lista-servicos { gap: 16px; }
+    .f-vertical .lista-servicos div { font-size: 50px; gap: 22px; }
+    .f-vertical .lista-servicos .losango { width: 11px; height: 11px; }
     .f-vertical .servicos-v { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 21px; color: var(--texto-suave); margin-top: -14px; }
     .f-vertical .servicos-v .losango { width: 6px; height: 6px; }
     .f-vertical .contatos { display: flex; flex-direction: column; gap: 22px; padding-top: 36px; border-top: 1px solid #DCD2BE; }
@@ -105,7 +110,7 @@
       }
       function servicosLinha() {
         const s = el("div", "servicos");
-        (C.servicos || []).forEach((t, i) => { if (i) s.append(el("span", "losango")); s.append(el("span", null, t)); });
+        for (const t of C.servicos || []) s.append(el("span", "topico", el("span", "losango"), el("span", null, t)));
         return s;
       }
       function servicosLista() {
@@ -147,8 +152,9 @@
       if (formato === "frente" || formato === "link") {
         arte.className = "frente f-" + formato;
         blocoMarca(arte);
-        arte.append(mensagem());
-        if (formato === "link" && (C.servicos || []).length) arte.append(servicosLinha());
+        const msg = mensagem();
+        if (msg) arte.append(msg);
+        if ((C.servicos || []).length && (formato === "link" || !C.mensagem)) arte.append(servicosLinha());
         arte.append(linha({ top: "34px", left: "60px", right: "60px" }), linha({ bottom: "34px", left: "60px", right: "60px" }));
       } else if (formato === "verso") {
         arte.className = "f-verso";
@@ -161,7 +167,7 @@
         blocoMarca(topo);
         topo.append(linha({ top: "40px", left: "80px", right: "80px" }), linha({ bottom: "40px", left: "80px", right: "80px" }));
         const contatosEl = el("div", "contatos", ...contatos());
-        arte.append(topo, el("div", "base", mensagem(), (C.servicos || []).length ? servicosV() : null, contatosEl), el("div", "faixa"));
+        arte.append(topo, el("div", "base", mensagem(), (C.servicos || []).length ? servicosLista() : null, contatosEl), el("div", "faixa"));
       }
       document.fonts.ready.then(() => { document.body.dataset.pronto = "1"; });
     })();

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Letícia Bernucci · Fisioterapia</title>
-  <meta name="description" content="Liberação miofascial, instrumental e ventosaterapia. Atendimento domiciliar.">
+  <meta name="description" content="Liberação miofascial manual, instrumental e ventosaterapia. Atendimento domiciliar.">
   <meta name="theme-color" content="#3D4A36">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Letícia Bernucci · Fisioterapia">
-  <meta property="og:description" content="Liberação miofascial, instrumental e ventosaterapia · Atendimento domiciliar.">
+  <meta property="og:description" content="Liberação miofascial manual · Instrumental · Ventosaterapia · Atendimento domiciliar.">
   <meta property="og:image" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/fisioterapia/cartao/imagens/cartao-link.png">
   <meta property="og:url" content="https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/fisioterapia/cartao/">
   <link rel="icon" href="../img/icone.svg" type="image/svg+xml">
@@ -55,8 +55,9 @@
     .verso { padding: 26px 24px 28px; display: flex; flex-direction: column; gap: 22px; }
     .mensagem { font-family: var(--titulo); font-weight: 600; font-size: 1.85rem; line-height: 1.15; color: var(--musgo-escuro); text-align: center; margin: 6px 0 0; text-wrap: balance; }
     .regua-escura { width: 40px; height: 1px; background: var(--dourado-escuro); border: 0; margin: -4px auto -6px; }
-    .servicos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; color: var(--texto-suave); }
-    .servicos li + li::before { content: ""; display: block; width: 5px; height: 5px; margin: 0 auto 6px; background: var(--dourado-escuro); transform: rotate(45deg); }
+    .servicos { list-style: none; margin: 0 auto; padding: 0; display: flex; flex-direction: column; gap: 10px; width: fit-content; max-width: 100%; }
+    .servicos li { display: flex; align-items: center; gap: 14px; font-family: var(--titulo); font-weight: 600; font-size: 1.5rem; line-height: 1.2; color: var(--musgo-escuro); }
+    .servicos li::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--dourado-escuro); transform: rotate(45deg); }
     .atendimento { margin: 0; text-align: center; color: var(--texto-suave); font-weight: 700; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     .acoes { display: flex; flex-direction: column; gap: 10px; }
@@ -117,7 +118,8 @@
       if (C.mensagem) msg.textContent = C.mensagem; else msg.hidden = true;
       const servicos = document.getElementById("servicos");
       for (const s of C.servicos || []) servicos.append(el("li", null, s));
-      if (!servicos.children.length) { servicos.hidden = true; document.querySelector(".regua-escura").hidden = true; }
+      if (!servicos.children.length) servicos.hidden = true;
+      if (!C.mensagem || !servicos.children.length) document.querySelector(".regua-escura").hidden = true;
 
       const atend = document.getElementById("atendimento");
       const textoAtend = [C.atendimento, marcar(C.cidade, "[cidade]")].filter(Boolean).join(" · ");
