@@ -41,6 +41,7 @@ Na tela de vendas, aba **Bling e backup**, a administradora envia as vendas do p
 - **Cliente:** procurada pelo CPF/CNPJ ou pelo nome; se não existir, é cadastrada com o endereço.
 - **Produtos:** ligados pelo código (SKU do Bling ou código do site).
 - **Forma de pagamento:** Pix; cartão parcelado mês a mês; "aguardando" vai na forma padrão.
+- **Vendedora:** escolhida uma vez na aba, pelo **código do vendedor no Bling** (sugere a Francielly Duarte). Depois de criar cada pedido, o sistema confere no Bling se a vendedora ficou gravada e avisa se não ficou. Enquanto não escolher, o envio fica travado.
 
 Detalhes:
 - A venda guarda o número do pedido do Bling e nunca vira dois pedidos, nem se for enviada de novo (referência `LIFE-nº da venda`).
@@ -48,13 +49,31 @@ Detalhes:
 - A planilha antiga continua disponível em "Baixar planilha para importar no Bling".
 
 **Para ligar (uma vez só):** o passo a passo está na própria aba, com botões para copiar o SQL, o código e o link. Em resumo:
-1. Rode [`supabase/bling.sql`](supabase/bling.sql).
-2. Crie o aplicativo no Bling com o link de redirecionamento `https://<projeto>.supabase.co/functions/v1/bling/retorno`.
+1. Rode [`supabase/bling.sql`](supabase/bling.sql). Rode de novo sempre que o arquivo mudar.
+2. Crie o aplicativo no Bling com o link de redirecionamento `https://<projeto>.supabase.co/functions/v1/bling/retorno` e as permissões Contatos (e Gerenciar Contatos), Pedidos de Venda (e Gerenciar Pedidos de Venda), Produtos, Formas de Pagamento e Vendedores. Depois de mudar as permissões, toque em **Conectar de novo**.
 3. Publique a função [`supabase/functions/bling/index.ts`](supabase/functions/bling/index.ts) no Supabase, com o nome `bling` e o **Verify JWT desligado**.
 4. Guarde os segredos `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET` em Edge Functions → Secrets.
 5. Toque em **Conectar ao Bling**.
 
-O Client Secret fica só no Supabase, nunca no site.
+O Client Secret fica só no Supabase, nunca no site. Se a função publicada for mais antiga que a tela, a aba avisa "desatualizada" e pede para colar o código novo.
+
+### Importar clientes do Bling
+
+Aba **Cadastro → Importar clientes do Bling** (só a administradora). O sistema lê as clientes do Bling, com endereço, e mostra uma prévia antes de gravar:
+- **Novas:** cadastradas com nome, CPF/CNPJ, telefone, e-mail e endereço. As que vierem com dados faltando são sinalizadas.
+- **Já cadastradas** (mesmo CPF/CNPJ, mesmo código do Bling, ou mesmo nome **e** telefone): ganham só os campos vazios. Nada que já está aqui é trocado; as diferenças aparecem na prévia.
+- **Para conferir:** mesmo nome sem como confirmar, nome igual com outro CPF, CPF repetido no Bling. Não entram sozinhas: marque "É a mesma pessoa" para completar o cadastro daqui.
+- **Ignoradas:** fornecedores, transportadoras, vendedores e excluídas.
+
+Pode importar de novo quando quiser: o que já entrou não duplica.
+
+### Cadastro de cliente: validação e duplicidade
+
+Na janela da cliente (nos Orçamentos e no Cadastro):
+- **Validação:** o CPF/CNPJ é conferido pelos dígitos. E-mail, CEP, UF e telefone também são validados. Depois de colar a mensagem, aparece o que não foi encontrado.
+- **Mesmo CPF/CNPJ ou mesmo nome de outra cliente:** não salva duplicado e oferece **Usar o cadastro de…**, que leva os dados colados para o cadastro dela.
+- **Mesmo telefone ou e-mail:** só avisa. O segundo "Salvar" confirma que é outra pessoa.
+- **Ligação com o orçamento:** a cliente salva fica ligada ao orçamento pelo cadastro (`cliente_id`), não só pelo nome.
 
 ### Compartilhar um modelo ou uma peça
 

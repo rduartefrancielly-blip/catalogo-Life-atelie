@@ -28,4 +28,16 @@ alter table public.vendas add column if not exists bling_erro text;
 -- Cliente já cadastrada no Bling (para não procurar nem cadastrar de novo)
 alter table public.clientes add column if not exists bling_contato_id bigint;
 
+-- Vendedora que vai nos pedidos enviados ao Bling (o código do Bling, escolhido na aba Bling)
+alter table public.bling_conexao add column if not exists vendedor_id bigint;
+alter table public.bling_conexao add column if not exists vendedor_nome text;
+
+-- Orçamento ligado ao cadastro da cliente (se a aba Orçamentos já estiver instalada)
+do $$
+begin
+  if to_regclass('public.orcamentos') is not null then
+    alter table public.orcamentos add column if not exists cliente_id uuid;
+  end if;
+end $$;
+
 select 'Bling pronto ✓' as resultado;

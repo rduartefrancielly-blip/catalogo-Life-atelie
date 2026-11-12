@@ -6,6 +6,9 @@
 //   GET  /retorno      o Bling volta aqui depois que você autoriza (guarda a conexão)
 //   GET  /status       administradora → conectado ou não
 //   POST /enviar       administradora → { ids: [...] } envia essas vendas
+//   GET  /vendedores   administradora → vendedoras cadastradas no Bling
+//   POST /vendedor     administradora → { id } vendedora que vai nos pedidos (0 = sem vendedora)
+//   POST /clientes-bling administradora → { pagina } uma página das clientes do Bling (com endereço)
 //   POST /desconectar  administradora → apaga a conexão
 //
 // Segredos (Supabase → Edge Functions → Secrets): BLING_CLIENT_ID e BLING_CLIENT_SECRET.
@@ -13,6 +16,7 @@
 // Em "Verify JWT" (Enforce JWT verification) deixe DESLIGADO: o Bling volta para /retorno sem login;
 // as outras rotas conferem o login aqui dentro.
 
+const VERSAO = "2026-11-12";
 const BLING_API = "https://api.bling.com.br/Api/v3";
 const BLING_OAUTH = "https://www.bling.com.br/Api/v3";
 const VOLTA_PADRAO = "https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/vendas.html";
@@ -193,7 +197,7 @@ async function produtosPorCodigo(codigos: string[]): Promise<Map<string, number>
   return mapa;
 }
 
-async function enviarVenda(v: any, itens: any[], c: any, formas: any[]): Promise<any> {
+async function enviarVenda(v: any, itens: any[], c: any, formas: any[], vendedorId: number): Promise<any> {
   if (v.bling_id) return { ok: true, ja: true, bling_id: v.bling_id, bling_numero: v.bling_numero };
   if (v.status && v.status !== "confirmada") throw new ErroBling("Venda cancelada: não vai para o Bling.");
   if (!itens.length) throw new ErroBling("Venda sem produtos.");
@@ -218,6 +222,7 @@ async function enviarVenda(v: any, itens: any[], c: any, formas: any[]): Promise
     const parcelas = dividir(total, n).map((valor, k) => ({ dataVencimento: v.pagamento === "credito" ? somarDias(dia, 30 * (k + 1)) : dia, valor, formaPagamento: { id: forma.id } }));
     const internas = ["Venda nº " + v.numero + " do sistema Life Ateliê", (PAGAMENTO_NOME[v.pagamento] || v.pagamento) + (n > 1 ? " em " + n + "x" : ""), v.observacao || ""].filter(Boolean).join(" · ");
     const corpo: any = { numeroLoja, data: dia, dataSaida: dia, dataPrevista: dia, contato: { id: await contatoDaVenda(v, c) }, itens: blItens, parcelas, observacoesInternas: internas.slice(0, 1000) };
+    if (vendedorId) corpo.vendedor = { id: vendedorId };
     let d: any;
     try {
       d = await bling("POST", "pedidos/vendas", corpo);
@@ -230,13 +235,21 @@ async function enviarVenda(v: any, itens: any[], c: any, formas: any[]): Promise
       d = await bling("POST", "pedidos/vendas", corpo);
     }
     id = d.data.id;
-    try { const p = await bling("GET", "pedidos/vendas/" + id); numero = p.data && p.data.numero; } catch (_) { /* o número aparece depois */ }
   }
+  // confere o pedido como ficou no Bling: número e vendedora
+  let vendedorOk: boolean | null = null;
+  try {
+    const p = await bling("GET", "pedidos/vendas/" + id);
+    if (p.data) {
+      numero = p.data.numero != null ? p.data.numero : numero;
+      if (vendedorId) vendedorOk = !!(p.data.vendedor && Number(p.data.vendedor.id) === Number(vendedorId));
+    }
+  } catch (_) { /* o número aparece depois */ }
   await db("vendas?id=eq." + v.id, {
     method: "PATCH", prefer: "return=minimal",
     body: { bling_status: "exportada", bling_em: new Date().toISOString(), bling_id: id, bling_numero: numero != null ? String(numero) : null, bling_erro: null },
   });
-  return { ok: true, ja: !!existente, bling_id: id, bling_numero: numero != null ? String(numero) : null };
+  return { ok: true, ja: !!existente, bling_id: id, bling_numero: numero != null ? String(numero) : null, vendedor_ok: vendedorOk };
 }
 
 async function enviar(ids: string[]): Promise<any> {
@@ -248,21 +261,84 @@ async function enviar(ids: string[]): Promise<any> {
   const idsCli = [...new Set(vendas.map((v: any) => v.cliente_id).filter(Boolean))];
   const clientes = idsCli.length ? await db("clientes?select=*&id=in.(" + idsCli.join(",") + ")") : [];
   const formas = (await bling("GET", "formas-pagamentos?situacao=1&limite=100")).data || [];
+  const conexao = await lerConexao();
+  const vendedorId = Number((conexao && conexao.vendedor_id) || 0);
   const resultados: any[] = [];
   for (const id of lista) {
     const v = vendas.find((x: any) => x.id === id);
     if (!v) { resultados.push({ id, ok: false, erro: "Venda não encontrada." }); continue; }
     const c = clientes.find((x: any) => x.id === v.cliente_id) || null;
     try {
-      resultados.push({ id, numero: v.numero, ...(await enviarVenda(v, itens.filter((i: any) => i.venda_id === id), c, formas)) });
+      resultados.push({ id, numero: v.numero, ...(await enviarVenda(v, itens.filter((i: any) => i.venda_id === id), c, formas, vendedorId)) });
     } catch (e) {
-      const msg = String((e && (e as Error).message) || e);
+      let msg = String((e && (e as Error).message) || e);
+      if (vendedorId && /vendedor/i.test(msg)) msg += " (confira a vendedora escolhida na aba Bling)";
       if (e instanceof ErroBling && e.reconectar) return { resultados, reconectar: true, erro: msg };
       try { await db("vendas?id=eq." + id, { method: "PATCH", body: { bling_erro: msg.slice(0, 500) }, prefer: "return=minimal" }); } catch (_) { /* sem a coluna: só avisa */ }
       resultados.push({ id, numero: v.numero, ok: false, erro: msg });
     }
   }
-  return { resultados };
+  return { resultados, vendedor: vendedorId ? { id: vendedorId, nome: conexao.vendedor_nome || "" } : null };
+}
+
+// ---------------------------------------------------------------------
+// Vendedoras do Bling
+// ---------------------------------------------------------------------
+async function vendedores(): Promise<any[]> {
+  const lista: any[] = [];
+  for (let pagina = 1; pagina <= 5; pagina++) {
+    const d = await bling("GET", "vendedores?limite=100&pagina=" + pagina);
+    const parte = d.data || [];
+    parte.forEach((v: any) => { if (v && v.id) lista.push({ id: v.id, nome: (v.contato && v.contato.nome) || "", situacao: (v.contato && v.contato.situacao) || "", contato_id: v.contato && v.contato.id }); });
+    if (parte.length < 100) break;
+  }
+  return lista;
+}
+
+// ---------------------------------------------------------------------
+// Clientes do Bling (para importar no sistema)
+// ---------------------------------------------------------------------
+const limpo = (s: unknown): string => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+function formatarDoc(s: unknown): string {
+  const d = digitos(s);
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return limpo(s);
+}
+function formatarTel(s: unknown): string {
+  let d = digitos(s);
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  d = d.replace(/^0+/, "");
+  if (d.length === 11) return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+  if (d.length === 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+  return limpo(s);
+}
+const formatarCep = (s: unknown): string => { const d = digitos(s); return d.length === 8 ? d.slice(0, 5) + "-" + d.slice(5) : limpo(s); };
+function mapearContato(d: any, parcial: boolean): any {
+  const g = (d.endereco && d.endereco.geral) || {};
+  return {
+    bling_id: d.id, nome: limpo(d.nome), documento: formatarDoc(d.numeroDocumento), telefone: formatarTel(d.celular || d.telefone),
+    email: limpo(d.email), cep: formatarCep(g.cep), rua: limpo(g.endereco), numero: limpo(g.numero), complemento: limpo(g.complemento),
+    bairro: limpo(g.bairro), cidade: limpo(g.municipio), uf: limpo(g.uf).toUpperCase(), situacao: d.situacao || "",
+    tipos: (d.tiposContato || []).map((t: any) => limpo(t && t.descricao)).filter(Boolean), parcial,
+  };
+}
+async function clientesDoBling(pagina: number): Promise<any> {
+  const limite = 40;
+  const d = await bling("GET", "contatos?limite=" + limite + "&pagina=" + pagina);
+  const lista = d.data || [];
+  const contatos: any[] = [];
+  for (const c of lista) {
+    if (c.situacao === "E") continue; // excluída no Bling
+    try {
+      const det = await bling("GET", "contatos/" + c.id);
+      contatos.push(mapearContato(det.data || c, !det.data));
+    } catch (e) {
+      if (e instanceof ErroBling && e.reconectar) throw e;
+      contatos.push(mapearContato(c, true)); // sem os detalhes: fica com nome, documento e telefone
+    }
+  }
+  return { pagina, contatos, fim: lista.length < limite };
 }
 
 // ---------------------------------------------------------------------
@@ -302,7 +378,24 @@ export async function atender(req: Request): Promise<Response> {
 
     if (acao === "status") {
       const c = await lerConexao();
-      return resposta({ conectado: !!(c && c.refresh_token), conectado_em: (c && c.conectado_em) || null, faltam_segredos: faltamSegredos });
+      return resposta({
+        versao: VERSAO, conectado: !!(c && c.refresh_token), conectado_em: (c && c.conectado_em) || null, faltam_segredos: faltamSegredos,
+        vendedor: c && c.vendedor_id != null ? { id: Number(c.vendedor_id), nome: c.vendedor_nome || "" } : null,
+      });
+    }
+    if (acao === "vendedores") return resposta({ vendedores: await vendedores() });
+    if (acao === "vendedor" && req.method === "POST") {
+      const corpo: any = await req.json().catch(() => ({}));
+      const id = Number(corpo.id);
+      if (!id) { await salvarConexao({ vendedor_id: 0, vendedor_nome: "" }); return resposta({ ok: true, vendedor: { id: 0, nome: "" } }); }
+      const v = (await vendedores()).find((x) => Number(x.id) === id);
+      if (!v) return resposta({ erro: "Essa vendedora não foi encontrada no Bling. Atualize a lista e escolha de novo." }, 400);
+      await salvarConexao({ vendedor_id: v.id, vendedor_nome: v.nome });
+      return resposta({ ok: true, vendedor: { id: v.id, nome: v.nome } });
+    }
+    if (acao === "clientes-bling" && req.method === "POST") {
+      const corpo: any = await req.json().catch(() => ({}));
+      return resposta(await clientesDoBling(Math.max(1, Number(corpo.pagina) || 1)));
     }
     if (acao === "iniciar" && req.method === "POST") {
       if (faltamSegredos) return resposta({ erro: "Faltam os segredos BLING_CLIENT_ID e BLING_CLIENT_SECRET na função do Supabase." }, 400);

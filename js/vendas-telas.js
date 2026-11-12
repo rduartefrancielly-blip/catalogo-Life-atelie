@@ -1,114 +1,10 @@
-// Life Ateliê · Vendas: abas Live, Estoque, Tags, Cadastro e Bling e backup (usam o núcleo de vendas.js).
+// Life Ateliê · Vendas: abas Estoque, Tags, Cadastro e Bling e backup (usam o núcleo de vendas.js).
 (function () {
   "use strict";
   const N = window.LifeVendasNucleo;
   const { E, V, $, esc, sb, brl } = N;
   const pill = (txt, cls) => `<span class="pill ${cls}">${esc(txt)}</span>`;
   const CAMPOS = ["telefone", "documento", "email", "cep", "rua", "numero", "complemento", "bairro", "cidade", "uf"];
-
-  // =====================================================================
-  // LIVE
-  // =====================================================================
-  let lives = [];
-  let comLive = N.ler("life-comissao-live", 3) === 5 ? 5 : 3;
-  const soTags = (l) => l.d.linhas.length === 0 && l.d.tags.length > 0;
-  function dadosDaLive(l) {
-    const d = l.d;
-    return {
-      nome: d.nome, info: d.info,
-      linhas: d.linhas.map((ln) => ({ produto: ln.item ? ln.item.modelo : ln.produto, cor: ln.item ? ln.item.cor : ln.cor, qtd: ln.qtd })),
-      valor: d.valorFinal, pagamento: d.pagamento || "aguardando", parcelas: d.pagamento === "credito" ? d.parcelas || 1 : null, pct: comLive, obs: d.obs,
-      tagsCompradas: [], tagsLivres: d.tags.map((t) => ({ iniciais: t.iniciais, cor: N.corTagNome(t.cor) || t.cor })),
-    };
-  }
-  function renderLive() {
-    document.querySelectorAll('input[name="livecomm"]').forEach((r) => { r.checked = Number(r.value) === comLive; });
-    const prontas = lives.filter((l) => l.estado === "pendente" && l.d.pronta && !soTags(l)).length;
-    $("liveBulk").hidden = !prontas;
-    $("liveCommitAll").textContent = "Lançar todas as prontas (" + prontas + ")";
-    const box = $("liveDrafts");
-    box.innerHTML = "";
-    lives.forEach((l) => {
-      const d = l.d, info = d.info, feita = l.estado === "feita";
-      const contato = [info.telefone, info.documento, info.email].filter(Boolean).join(" · "), end = V.enderecoLinha(info);
-      const prod = d.linhas.map((ln) => esc(ln.qtd + "x " + (ln.item ? ln.item.nome : ln.produto + (ln.cor ? " " + ln.cor : " (sem cor)")))).join("; ");
-      const tags = d.tags.map((t) => N.miniTag(t.iniciais, N.corTagNome(t.cor) || t.cor, true)).join(" ");
-      const card = document.createElement("div");
-      card.className = "draft-card " + (feita ? "done" : d.pronta ? "ready" : "blocked");
-      card.innerHTML =
-        '<div class="draft-head"><b>' + esc(d.nome || "(sem nome)") + "</b>" + (feita ? pill(l.mensagem || "Registrada", "ok") : d.pronta ? pill("Pronta · ainda não registrada", "ok") : pill("Faltam dados", "wait")) + "</div>" +
-        (contato ? '<div class="draft-line"><span class="k">Contato:</span> ' + esc(contato) + "</div>" : "") +
-        (end ? '<div class="draft-line"><span class="k">Endereço:</span> ' + esc(end) + "</div>" : "") +
-        (prod ? '<div class="draft-line"><span class="k">Produtos:</span> ' + prod + "</div>" : "") +
-        (tags ? '<div class="draft-line"><span class="k">Tag:</span> ' + tags + "</div>" : "") +
-        (d.linhas.length ? '<div class="draft-line"><span class="k">Pagamento:</span> ' + esc(d.pagamento ? N.PAGAMENTOS[d.pagamento] + (d.pagamento === "credito" ? " " + (d.parcelas || 1) + "x" : "") : "não informado") +
-          ' · <span class="k">Valor:</span> ' + (d.valorFinal != null && !isNaN(d.valorFinal) ? esc(brl(d.valorFinal)) + (d.valorOrigem !== "informado" ? " (" + esc(d.valorOrigem) + ")" : "") : "faltando") + "</div>" : "") +
-        (d.obs ? '<div class="draft-line"><span class="k">Obs.:</span> ' + esc(d.obs) + "</div>" : "") +
-        (!feita && (d.bloqueios.length || d.avisos.length) ? '<ul class="draft-issues">' + d.bloqueios.map((t) => '<li class="block">• ' + esc(t) + "</li>").join("") + d.avisos.map((t) => '<li class="info">• ' + esc(t) + "</li>").join("") + "</ul>" : "") +
-        (l.erro ? '<div class="form-msg warn">' + esc(l.erro) + "</div>" : "") +
-        (feita ? "" : '<div class="draft-actions"><button type="button" class="btn small" data-act="commit"' + (d.pronta ? "" : " disabled") + ">" + (soTags(l) ? "Cadastrar tag" : "Lançar") + "</button>" +
-          (soTags(l) ? "" : '<button type="button" class="btn ghost small" data-act="review">Revisar na venda</button>') + '<button type="button" class="btn ghost small" data-act="drop">Descartar</button></div>');
-      if (!feita) {
-        card.querySelector('[data-act="commit"]').addEventListener("click", () => lancar(l));
-        const rv = card.querySelector('[data-act="review"]');
-        if (rv) rv.addEventListener("click", () => {
-          const dd = dadosDaLive(l);
-          N.preencherForm(Object.assign({}, dd, { valor: dd.valor }));
-          l.estado = "feita"; l.mensagem = "Em revisão na aba Vendas"; renderLive();
-          N.showTab("sales");
-          N.setMsg($("saleMsg"), "Dados de " + dd.nome + " carregados. Confira e clique em Registrar venda.", "ok");
-        });
-        card.querySelector('[data-act="drop"]').addEventListener("click", () => { lives = lives.filter((x) => x !== l); renderLive(); });
-      }
-      box.appendChild(card);
-    });
-  }
-  function reavaliarPendentes() { lives.forEach((l) => { if (l.estado === "pendente") E.leitor.avaliar(l.d); }); }
-  async function lancar(l, semAtualizar) {
-    l.erro = "";
-    try {
-      if (soTags(l)) {
-        const linhas = l.d.tags.map((t) => ({ cliente_nome: l.d.nome || "Sem nome", iniciais: t.iniciais || null, cor: N.corTagNome(t.cor) || t.cor || "a escolher", origem: "avulsa", observacao: l.d.obs || null }));
-        const { error } = await sb.from("tags").insert(linhas);
-        if (error) throw error;
-        l.estado = "feita"; l.mensagem = linhas.length + (linhas.length === 1 ? " tag avulsa cadastrada" : " tags avulsas cadastradas");
-      } else {
-        const res = await N.enviarVenda(N.montarPedido(dadosDaLive(l), l.chave, "live"));
-        l.estado = "feita"; l.mensagem = "Registrada #" + res.numero;
-      }
-      if (!semAtualizar) { await N.recarregar(["produtos", "clientes", "vendas", "tags"]); reavaliarPendentes(); N.renderTudo(); }
-      return true;
-    } catch (e) { l.erro = N.traduzirErro(e); if (!semAtualizar) renderLive(); return false; }
-  }
-  $("liveParse").addEventListener("click", () => {
-    const txt = $("liveText").value;
-    if (!txt.trim()) { N.setMsg($("liveMsg"), "Cole as mensagens primeiro.", "warn"); return; }
-    lives = E.leitor.lerLive(txt).map((d) => ({ d, chave: "live-" + N.uuid(), estado: "pendente", mensagem: "", erro: "" }));
-    if (!lives.length) { N.setMsg($("liveMsg"), "Não encontrei dados de cliente nesse texto.", "warn"); renderLive(); return; }
-    const prontas = lives.filter((l) => l.d.pronta).length;
-    N.setMsg($("liveMsg"), lives.length + (lives.length === 1 ? " cliente lida" : " clientes lidas") + ", " + prontas + (prontas === 1 ? " pronta" : " prontas") + " para lançar. Confira abaixo. Nada foi registrado ainda.", "ok");
-    renderLive();
-  });
-  $("liveClear").addEventListener("click", () => { $("liveText").value = ""; lives = []; N.setMsg($("liveMsg"), ""); renderLive(); });
-  $("liveTemplate").addEventListener("click", async () => {
-    const t = ["Olá! Para fechar o seu pedido, me envie por favor:", "", "Nome completo:", "CPF:", "Telefone:", "CEP:", "Endereço (rua, número, complemento, bairro, cidade/UF):", "Produto:", "Cor:", "Tag - iniciais:", "Tag - cor:", "Forma de pagamento (Pix ou cartão em até 6x):"].join("\n");
-    const copiou = await N.copiar(t);
-    N.setMsg($("liveMsg"), copiou ? "Modelo copiado. Cole na conversa da cliente." : "Não consegui copiar o modelo.", copiou ? "ok" : "warn");
-  });
-  document.querySelectorAll('input[name="livecomm"]').forEach((r) => r.addEventListener("change", () => { comLive = Number(r.value); N.gravar("life-comissao-live", comLive); }));
-  $("liveCommitAll").addEventListener("click", async () => {
-    const lista = lives.filter((l) => l.estado === "pendente" && l.d.pronta && !soTags(l));
-    if (!lista.length) return;
-    $("liveCommitAll").disabled = true;
-    let ok = 0, falhas = 0;
-    for (let k = 0; k < lista.length; k++) {
-      N.setMsg($("liveMsg"), "Lançando " + (k + 1) + " de " + lista.length + "…");
-      if (await lancar(lista[k], true)) { ok++; await N.recarregar(["produtos"]); reavaliarPendentes(); } else falhas++;
-    }
-    await N.recarregar(["produtos", "clientes", "vendas", "tags"]); reavaliarPendentes(); N.renderTudo();
-    $("liveCommitAll").disabled = false;
-    N.setMsg($("liveMsg"), ok + (ok === 1 ? " venda lançada" : " vendas lançadas") + (falhas ? " · " + falhas + " precisam de conferência." : "."), falhas ? "warn" : "ok");
-  });
 
   // =====================================================================
   // ESTOQUE
@@ -335,6 +231,7 @@
     if (document.activeElement !== $("fmtItem")) $("fmtItem").value = f.item;
     renderPrevia();
     $("formAjustes").hidden = !N.ehAdmin();
+    $("cardImportarBling").hidden = !N.ehAdmin();
     if (N.ehAdmin() && !$("formAjustes").contains(document.activeElement)) {
       $("ajTag").value = N.fmtEntrada(E.ajustes.tag_valor_minimo); $("ajComissao").value = String(E.ajustes.comissao_padrao).replace(".", ","); $("ajBaixo").value = E.ajustes.estoque_baixo; $("ajFabrica").value = E.ajustes.telefone_fabrica;
     }
@@ -351,6 +248,7 @@
   $("fmtDefault").addEventListener("click", () => { N.apagar("life-formato-texto-v2"); $("fmtModelo").value = V.MODELO_TEXTO; $("fmtItem").value = V.MODELO_ITEM; renderPrevia(); });
 
   let clienteEm = null, aoSalvarCliente = null;
+  let avisoConfirmado = ""; // aviso de "mesmo telefone/e-mail" já mostrado: o segundo "Salvar" confirma
   const campoEl = (k) => $(k === "nome" ? "dclNome" : k === "observacoes" ? "dclObs" : "dcl" + k.charAt(0).toUpperCase() + k.slice(1));
   // op: { prefill: { nome, telefone }, colar: true (cursor no campo de colar), aoSalvar(dados) }
   function abrirCliente(c, op) {
@@ -367,8 +265,15 @@
     $("dclColar").value = "";
     $("dclColarMsg").textContent = ""; $("dclColarMsg").className = "field-hint";
     $("dlgCliente").querySelectorAll(".preenchido").forEach((el) => el.classList.remove("preenchido"));
+    $("dlgCliente").querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
     $("dclErro").textContent = "";
-    $("dlgCliente").showModal();
+    avisoConfirmado = "";
+    // "usar o cadastro existente": traz para cá o que já estava digitado/colado (o novo vale mais)
+    if (op.valores) {
+      Object.entries(op.valores).forEach(([k, v]) => { if (v && String(v).trim() && k !== "nome") marcar(campoEl(k), v); });
+      $("dclColarMsg").textContent = "Os dados que você colou foram colocados no cadastro de " + c.nome + ". Confira e salve."; $("dclColarMsg").className = "field-hint ok";
+    }
+    if (!$("dlgCliente").open) $("dlgCliente").showModal();
     if (op.colar) $("dclColar").focus();
   }
   $("dlgCliente").addEventListener("close", () => { aoSalvarCliente = null; });
@@ -387,7 +292,14 @@
     msg.textContent = achados.length
       ? "Preenchi: " + achados.map((k) => NOMES_CAMPO[k]).join(", ") + ". Confira antes de salvar." + (naoEntendi.length ? " Não entendi: \"" + naoEntendi.join("\" / \"") + "\"." : "")
       : "Não reconheci os dados nessa mensagem. Preencha os campos abaixo.";
-    completarPeloCep();
+    completarPeloCep().then(avisarFaltando);
+  }
+  // o que ainda ficou em branco depois de colar (e do CEP)
+  function avisarFaltando() {
+    const msg = $("dclColarMsg");
+    if (!$("dclColar").value.trim() || /Não reconheci/.test(msg.textContent)) return;
+    const faltam = ["documento", "telefone", "email", "cep", "rua", "numero", "bairro", "cidade", "uf"].filter((k) => !campoEl(k).value.trim());
+    msg.textContent = msg.textContent.replace(/ Não encontrei: .*$/, "") + (faltam.length ? " Não encontrei: " + faltam.map((k) => NOMES_CAMPO[k]).join(", ") + "." : "");
   }
   $("dclColar").addEventListener("input", () => { clearTimeout(colarTimer); colarTimer = setTimeout(lerColado, 350); });
   $("dclColar").addEventListener("paste", () => { clearTimeout(colarTimer); setTimeout(lerColado, 0); });
@@ -413,19 +325,44 @@
   }
   $("dclCep").addEventListener("change", completarPeloCep);
 
+  function usarExistente(x, valores) {
+    const aoSalvar = aoSalvarCliente;
+    abrirCliente(x, { aoSalvar, valores });
+  }
   $("formCliente").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const aoSalvar = aoSalvarCliente;
-    const dados = { nome: $("dclNome").value.trim() };
-    CAMPOS.forEach((k) => { dados[k] = $("dcl" + k.charAt(0).toUpperCase() + k.slice(1)).value.trim() || null; });
-    if (!dados.nome) { $("dclErro").textContent = "O nome não pode ficar vazio."; return; }
+    const aoSalvar = aoSalvarCliente, erroEl = $("dclErro");
+    const dados = { nome: $("dclNome").value.trim().replace(/\s+/g, " ") };
+    CAMPOS.forEach((k) => { dados[k] = campoEl(k).value.trim() || null; });
     if (dados.uf) dados.uf = dados.uf.toUpperCase();
     dados.observacoes = $("dclObs").value.trim() || null;
-    const r = clienteEm ? await sb.from("clientes").update(dados).eq("id", clienteEm.id) : await sb.from("clientes").insert(dados);
-    if (r.error) { $("dclErro").textContent = /duplicate|unique/i.test(r.error.message) ? "Já existe outra cliente com esse nome." : N.traduzirErro(r.error); return; }
+    // 1) campos com formato errado
+    $("dlgCliente").querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+    const erros = window.LerCliente.validarCadastro(dados);
+    if (erros.length) {
+      erros.forEach((x) => campoEl(x.campo).setAttribute("aria-invalid", "true"));
+      erroEl.textContent = erros.map((x) => x.msg).join(" ");
+      campoEl(erros[0].campo).focus();
+      return;
+    }
+    // 2) a mesma pessoa já cadastrada (CPF/CNPJ ou nome = não deixa duplicar; telefone/e-mail = avisa uma vez)
+    const dups = window.LerCliente.acharDuplicadas(dados, E.clientes, clienteEm && clienteEm.id);
+    const forte = dups.find((d) => d.forte), fraca = dups.find((d) => !d.forte);
+    const chaveAviso = fraca ? fraca.cliente.id + "|" + fraca.motivo : "";
+    if (forte || (fraca && avisoConfirmado !== chaveAviso)) {
+      const d = forte || fraca;
+      erroEl.innerHTML = (forte ? "Já existe a cliente <b>" + esc(d.cliente.nome) + "</b> com " + esc(d.motivo) + ". Para não duplicar, use o cadastro dela."
+        : "Atenção: <b>" + esc(d.cliente.nome) + "</b> tem " + esc(d.motivo) + ". Se for a mesma pessoa, use o cadastro dela; se não for, toque em Salvar de novo.") +
+        ' <button type="button" class="btn ghost small" id="dclUsarExistente">Usar o cadastro de ' + esc(d.cliente.nome) + "</button>";
+      $("dclUsarExistente").addEventListener("click", () => usarExistente(d.cliente, dados));
+      if (!forte) avisoConfirmado = chaveAviso;
+      return;
+    }
+    const r = clienteEm ? await sb.from("clientes").update(dados).eq("id", clienteEm.id).select().single() : await sb.from("clientes").insert(dados).select().single();
+    if (r.error) { erroEl.textContent = /duplicate|unique/i.test(r.error.message) ? "Já existe outra cliente com esse nome." : N.traduzirErro(r.error); return; }
     $("dlgCliente").close();
     await N.recarregar(["clientes", "vendas"]); N.renderTudo(); N.aviso("Cliente salva.");
-    if (aoSalvar) aoSalvar(dados);
+    if (aoSalvar) aoSalvar(Object.assign({}, dados, r.data || {}));
   });
   $("formAjustes").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -491,21 +428,27 @@
     desenharBlingApi();
   }
   const pendentesBling = () => vendasDoBling().filter((v) => !v.bling_id);
+  const FUNCAO_VERSAO = "2026-11-12"; // versão da função "bling" que esta tela espera
+  const funcaoVelha = (s) => !!s && !s.semFuncao && !s.erro && s.versao !== FUNCAO_VERSAO;
   function desenharBlingApi() {
     const s = BL.status || {}, st = $("blApiStatus"), env = $("blEnviar"), con = $("blConectar");
     const n = pendentesBling().length;
-    env.hidden = true; con.hidden = true;
+    env.hidden = true; con.hidden = true; $("blVendedora").hidden = true;
     if (s.semFuncao) st.innerHTML = "A integração ainda não foi instalada no Supabase. Siga o <b>passo a passo</b> abaixo (uma vez só).";
+    else if (funcaoVelha(s)) st.innerHTML = "A função do Bling no Supabase está <b>desatualizada</b>. Atualize no passo 3 abaixo: <b>Copiar o código</b> → no Supabase, abra a função <b>bling</b>, apague o código antigo, cole o novo e toque em <b>Deploy</b>.";
     else if (s.faltam_segredos) st.innerHTML = "A função está instalada, mas faltam os segredos do Bling (passo 4 abaixo).";
     else if (s.erro) st.textContent = s.erro;
     else if (!s.conectado) { st.textContent = "Ainda não conectado ao Bling."; con.hidden = false; con.textContent = "Conectar ao Bling"; con.className = "btn"; }
     else {
       st.textContent = "Conectado ao Bling ✓" + (s.conectado_em ? " desde " + N.dataCurta(s.conectado_em) : "") + ". As vendas viram pedidos de venda lá, com a cliente, os produtos (pelo código) e a forma de pagamento.";
-      env.hidden = false; env.disabled = !n || BL.enviando;
-      env.textContent = n ? "Enviar " + n + (n === 1 ? " venda" : " vendas") + " para o Bling" : "Nenhuma venda para enviar neste período";
+      const semVendedora = !s.vendedor; // ainda não escolheu (nem "sem vendedora")
+      env.hidden = false; env.disabled = !n || BL.enviando || semVendedora;
+      env.textContent = semVendedora ? "Escolha a vendedora abaixo antes de enviar" : n ? "Enviar " + n + (n === 1 ? " venda" : " vendas") + " para o Bling" : "Nenhuma venda para enviar neste período";
       con.hidden = false; con.textContent = "Conectar de novo"; con.className = "btn ghost";
+      $("blVendedora").hidden = false;
+      if (!BL.vendedores && !BL.carregandoVend) carregarVendedores(); else desenharVendedora();
     }
-    $("blInstalar").open = !!(s.semFuncao || s.faltam_segredos || s.erro || !s.conectado);
+    $("blInstalar").open = !!(s.semFuncao || s.faltam_segredos || s.erro || !s.conectado || funcaoVelha(s));
     // vendas que não foram na última tentativa: mostra o motivo (se a lista do último envio não estiver na tela)
     if (!BL.enviando && !$("blResultados").dataset.agora) {
       const comErro = pendentesBling().filter((v) => v.bling_erro);
@@ -513,6 +456,50 @@
     }
     if (BL.aviso) { N.setMsg($("blEnviarMsg"), BL.aviso.texto, BL.aviso.tipo); BL.aviso = null; }
   }
+  // ---------- vendedora dos pedidos (pelo código do Bling, não só pelo nome) ----------
+  const ehFrancielly = (nome) => /francielly/.test(V.norm(nome));
+  async function carregarVendedores() {
+    BL.carregandoVend = true;
+    $("blVendedoraMsg").textContent = "Buscando as vendedoras no Bling…"; $("blVendedoraMsg").className = "field-hint";
+    const d = await chamarBling("vendedores");
+    BL.carregandoVend = false;
+    if (d.erro || d.semFuncao) {
+      BL.vendedores = [];
+      BL.erroVend = /escopo|scope|permiss|forbidden|insufficient|403|autoriza/i.test(d.erro || "")
+        ? "O aplicativo do Bling ainda não tem a permissão Vendedores. Adicione o escopo \"Vendedores\" no aplicativo, salve e toque em Conectar de novo."
+        : "Não consegui buscar as vendedoras no Bling: " + (d.erro || "a função não respondeu") + ".";
+    } else { BL.vendedores = d.vendedores || []; BL.erroVend = ""; }
+    desenharVendedora();
+  }
+  function desenharVendedora() {
+    const sel = $("blVendedoraSel"), msg = $("blVendedoraMsg"), s = BL.status || {};
+    const lista = BL.vendedores || [];
+    const atual = s.vendedor ? String(s.vendedor.id) : "";
+    const sugerida = !atual ? lista.find((v) => ehFrancielly(v.nome)) : null;
+    sel.innerHTML = '<option value="">— escolha a vendedora —</option>' +
+      lista.map((v) => '<option value="' + v.id + '">' + esc(v.nome || "(sem nome)") + " · código " + v.id + (v.situacao && v.situacao !== "A" ? " (inativa)" : "") + "</option>").join("") +
+      '<option value="0">Enviar sem vendedora</option>';
+    sel.value = atual || (sugerida ? String(sugerida.id) : "");
+    msg.className = "field-hint";
+    if (BL.erroVend) { msg.textContent = BL.erroVend; msg.className = "field-hint warn"; }
+    else if (s.vendedor && s.vendedor.id) { msg.textContent = "Os pedidos vão com a vendedora " + (s.vendedor.nome || "") + " (código " + s.vendedor.id + " no Bling)."; msg.className = "field-hint ok"; }
+    else if (s.vendedor) msg.textContent = "Os pedidos vão sem vendedora.";
+    else if (sugerida) msg.textContent = "Achei " + sugerida.nome + " (código " + sugerida.id + ") no Bling. Confira e toque em Salvar.";
+    else if (lista.length) msg.textContent = "Não achei a vendedora Francielly Duarte no Bling. Escolha na lista ou cadastre em Cadastros → Vendedores no Bling e toque em \"atualizar lista\".";
+    else msg.textContent = "Nenhuma vendedora cadastrada no Bling. Cadastre a Francielly Duarte em Cadastros → Vendedores no Bling e toque em \"atualizar lista\".";
+  }
+  $("blVendedoraAtualizar").addEventListener("click", () => carregarVendedores());
+  $("blVendedoraSalvar").addEventListener("click", async (e) => {
+    const botao = e.currentTarget, v = $("blVendedoraSel").value;
+    if (v === "") { $("blVendedoraMsg").textContent = "Escolha uma vendedora (ou \"Enviar sem vendedora\")."; $("blVendedoraMsg").className = "field-hint warn"; return; }
+    botao.disabled = true;
+    const d = await chamarBling("vendedor", { id: Number(v) });
+    botao.disabled = false;
+    if (d.erro) { $("blVendedoraMsg").textContent = d.erro; $("blVendedoraMsg").className = "field-hint warn"; return; }
+    BL.status = Object.assign({}, BL.status, { vendedor: d.vendedor });
+    desenharBlingApi();
+  });
+
   $("blConectar").addEventListener("click", async (e) => {
     const botao = e.currentTarget;
     botao.disabled = true;
@@ -527,11 +514,12 @@
     if (!window.confirm("Enviar " + lista.length + (lista.length === 1 ? " venda" : " vendas") + " para o Bling? Cada uma vira um pedido de venda lá (uma venda nunca vira dois pedidos).")) return;
     BL.enviando = true; desenharBlingApi();
     const msg = $("blEnviarMsg"), res = [];
-    let parou = "";
+    let parou = "", vendedoraEnvio = "";
     for (let i = 0; i < lista.length; i += 10) {
       N.setMsg(msg, "Enviando " + Math.min(i + 10, lista.length) + " de " + lista.length + "… (deixe esta tela aberta)");
       const d = await chamarBling("enviar", { ids: lista.slice(i, i + 10).map((v) => v.id) });
       (d.resultados || []).forEach((x) => res.push(x));
+      if (d.vendedor && d.vendedor.nome) vendedoraEnvio = d.vendedor.nome;
       if (d.reconectar) BL.status = Object.assign({}, BL.status, { conectado: false });
       if (d.erro || d.semFuncao) { parou = d.semFuncao ? "A função do Bling não respondeu." : d.erro; break; }
     }
@@ -540,7 +528,8 @@
     const okN = res.filter((x) => x.ok).length, erros = res.filter((x) => !x.ok);
     $("blResultados").dataset.agora = "1";
     $("blResultados").innerHTML = res.map((x) => '<li class="' + (x.ok ? "ok" : "warn") + '">' + (x.ok
-      ? "Venda nº " + esc(String(x.numero)) + " → pedido " + (x.bling_numero ? "nº " + esc(x.bling_numero) + " " : "") + "no Bling ✓" + (x.ja ? " (já estava lá)" : "")
+      ? "Venda nº " + esc(String(x.numero)) + " → pedido " + (x.bling_numero ? "nº " + esc(x.bling_numero) + " " : "") + "no Bling ✓" + (x.ja ? " (já estava lá)" : "") +
+        (x.vendedor_ok === true && vendedoraEnvio ? " · vendedora " + esc(vendedoraEnvio) : x.vendedor_ok === false ? ' <span class="warn">· o Bling não gravou a vendedora: confira o pedido lá</span>' : "")
       : "Venda nº " + esc(String(x.numero || "?")) + ": " + esc(x.erro || "não foi")) + "</li>").join("");
     N.setMsg(msg, (okN ? okN + (okN === 1 ? " venda enviada" : " vendas enviadas") + " para o Bling." : "") + (erros.length ? " " + erros.length + (erros.length === 1 ? " não foi" : " não foram") + ": veja o motivo abaixo, corrija e envie de novo." : "") + (parou ? " " + parou : ""), erros.length || parou ? "warn" : "ok");
     desenharBlingApi();
@@ -560,6 +549,98 @@
     const ok = await N.copiar(urlFuncao("retorno"));
     N.setMsg($("blInstalarMsg"), ok ? "Link copiado. Cole no campo de link de redirecionamento do aplicativo no Bling." : "Não consegui copiar. Selecione o link e copie.", ok ? "ok" : "warn");
   });
+  // ---------- importar as clientes do Bling (aba Cadastro) ----------
+  let importacao = null;
+  const LC = () => window.LerCliente;
+  $("impBuscar").addEventListener("click", async (e) => {
+    const botao = e.currentTarget, msg = $("impMsg");
+    botao.disabled = true; $("impPrevia").innerHTML = ""; importacao = null;
+    const contatos = [];
+    let erro = "";
+    for (let pagina = 1; pagina <= 250; pagina++) {
+      N.setMsg(msg, "Lendo as clientes do Bling… " + contatos.length + " até agora (deixe esta tela aberta).");
+      const d = await chamarBling("clientes-bling", { pagina });
+      if (d.semFuncao) { erro = "A integração com o Bling ainda não foi instalada (aba Bling e backup)."; break; }
+      if (d.reconectar) { erro = "O Bling pediu para conectar de novo: aba Bling e backup → Conectar ao Bling."; break; }
+      if (d.erro) { erro = /desconhecido/i.test(d.erro) ? "A função do Bling no Supabase está desatualizada: atualize no passo 3 da aba Bling e backup." : /escopo|scope|permiss|forbidden|insufficient|403/i.test(d.erro) ? "O aplicativo do Bling não tem a permissão Contatos. Adicione o escopo \"Contatos\", salve e toque em Conectar de novo (aba Bling e backup)." : d.erro; break; }
+      (d.contatos || []).forEach((c) => contatos.push(c));
+      if (d.fim) break;
+    }
+    botao.disabled = false;
+    if (erro) { N.setMsg(msg, erro + (contatos.length ? " (" + contatos.length + " lidas antes do erro: nada foi gravado.)" : ""), "warn"); return; }
+    importacao = LC().compararImportacao(E.clientes, contatos);
+    importacao.lidas = contatos.length;
+    N.setMsg(msg, contatos.length + " clientes lidas no Bling. Confira abaixo: nada foi gravado ainda.", "ok");
+    desenharImportacao();
+  });
+  function desenharImportacao() {
+    const r = importacao, el = $("impPrevia");
+    const nomes = { documento: "CPF/CNPJ", telefone: "telefone", email: "e-mail", cep: "CEP", rua: "rua", numero: "número", complemento: "complemento", bairro: "bairro", cidade: "cidade", uf: "UF" };
+    const incompletas = r.novas.filter((x) => x.faltam.length).length;
+    const lista = (itens, fn) => "<ul>" + itens.map(fn).join("") + "</ul>";
+    let h = '<ul class="imp-resumo">' +
+      "<li><b>" + r.novas.length + "</b> novas" + (incompletas ? " (" + incompletas + " com dados faltando)" : "") + "</li>" +
+      "<li><b>" + r.completar.length + "</b> já cadastradas aqui que vão ganhar dados que faltam</li>" +
+      "<li><b>" + r.iguais + "</b> já estão iguais</li>" +
+      "<li><b>" + r.conferir.length + "</b> para conferir (possível duplicidade)</li>" +
+      "<li><b>" + r.ignoradas.length + "</b> ignoradas (fornecedores, transportadoras, excluídas)</li></ul>";
+    if (r.novas.length) h += '<details class="imp-grupo"><summary>Novas (' + r.novas.length + ")</summary>" + lista(r.novas, (x) => "<li>" + esc(x.contato.nome) + (x.contato.documento ? " · " + esc(x.contato.documento) : "") + (x.faltam.length ? ' <span class="warn">(' + esc(x.faltam.join(", ")) + ")</span>" : "") + (x.contato.parcial ? ' <span class="warn">(endereço não veio)</span>' : "") + "</li>") + "</details>";
+    if (r.completar.length) h += '<details class="imp-grupo"><summary>Vão ganhar dados que faltam (' + r.completar.length + ")</summary>" + lista(r.completar, (x) => "<li>" + esc(x.cliente.nome) + ": " + esc(Object.keys(x.campos).map((k) => nomes[k]).join(", ")) + (x.diferencas.length ? ' <span class="mini">(diferente no Bling e mantido como está aqui: ' + esc(x.diferencas.map((k) => nomes[k]).join(", ")) + ")</span>" : "") + "</li>") + "</details>";
+    if (r.conferir.length) h += '<details class="imp-grupo" open><summary>Para conferir (' + r.conferir.length + ")</summary>" + lista(r.conferir, (x, i) => '<li><span>' + esc(x.contato.nome) + (x.contato.documento ? " · " + esc(x.contato.documento) : "") + ': ' + esc(x.motivo) + "</span>" + (x.podeCompletar ? '<label class="check"><input type="checkbox" data-imp-conferir="' + r.conferir.indexOf(x) + '"> É a mesma pessoa: completar o cadastro daqui com os dados do Bling</label>' : "") + "</li>") + "</details>";
+    if (r.ignoradas.length) h += '<details class="imp-grupo"><summary>Ignoradas (' + r.ignoradas.length + ")</summary>" + lista(r.ignoradas, (x) => "<li>" + esc(x.contato.nome || "(sem nome)") + ": " + esc(x.motivo) + "</li>") + "</details>";
+    const total = r.novas.length + r.completar.length + r.vincular.length;
+    h += total ? '<div class="form-actions"><button type="button" class="btn" id="impAplicar">Importar ' + r.novas.length + (r.novas.length === 1 ? " nova" : " novas") + " e completar " + r.completar.length + "</button></div>" : '<p class="mini-note">Nada para importar: o cadastro já está em dia com o Bling.</p>';
+    el.innerHTML = h;
+  }
+  // marcar uma "possível duplicidade" como a mesma pessoa entra na conta do botão
+  $("impPrevia").addEventListener("change", (e) => {
+    if (!e.target.matches("[data-imp-conferir]") || !importacao || !$("impAplicar")) return;
+    const r = importacao, extra = $("impPrevia").querySelectorAll("[data-imp-conferir]:checked").length;
+    $("impAplicar").textContent = "Importar " + r.novas.length + (r.novas.length === 1 ? " nova" : " novas") + " e completar " + (r.completar.length + extra);
+  });
+  $("impPrevia").addEventListener("click", async (e) => {
+    if (e.target.id !== "impAplicar" || !importacao) return;
+    const r = importacao, msg = $("impMsg"), botao = e.target;
+    const marcadas = [...$("impPrevia").querySelectorAll("[data-imp-conferir]:checked")].map((c) => r.conferir[Number(c.dataset.impConferir)]);
+    if (!window.confirm("Gravar no cadastro: " + r.novas.length + " clientes novas e completar " + (r.completar.length + marcadas.length) + " cadastros? Nada será apagado.")) return;
+    botao.disabled = true;
+    let semColuna = false, novas = 0, completas = 0;
+    const falhas = [];
+    const semId = (o) => { const x = Object.assign({}, o); delete x.bling_contato_id; return x; };
+    async function inserir(linha) {
+      let q = await sb.from("clientes").insert(semColuna ? semId(linha) : linha);
+      if (q.error && /bling_contato_id/.test(q.error.message || "")) { semColuna = true; q = await sb.from("clientes").insert(semId(linha)); }
+      return q.error;
+    }
+    async function atualizar(id, campos) {
+      let q = await sb.from("clientes").update(semColuna ? semId(campos) : campos).eq("id", id);
+      if (q.error && /bling_contato_id/.test(q.error.message || "")) { semColuna = true; q = await sb.from("clientes").update(semId(campos)).eq("id", id); }
+      return q.error;
+    }
+    for (let i = 0; i < r.novas.length; i++) {
+      N.setMsg(msg, "Gravando " + (i + 1) + " de " + r.novas.length + " novas…");
+      const x = r.novas[i], err = await inserir(LC().linhaDoContato(x.contato));
+      if (err) falhas.push(x.contato.nome + ": " + (/duplicate|unique/i.test(err.message) ? "já existe uma cliente com esse nome" : N.traduzirErro(err))); else novas++;
+    }
+    const atualizacoes = r.completar.map((x) => [x.cliente, Object.assign({}, x.campos, { bling_contato_id: x.contato.bling_id })])
+      .concat(r.vincular.map((x) => [x.cliente, { bling_contato_id: x.contato.bling_id }]))
+      .concat(marcadas.map((x) => {
+        const campos = { bling_contato_id: x.contato.bling_id };
+        LC().CAMPOS_IMPORT.forEach((k) => { if (String(x.contato[k] || "").trim() && !String(x.cliente[k] || "").trim()) campos[k] = k === "uf" ? String(x.contato[k]).toUpperCase() : x.contato[k]; });
+        return [x.cliente, campos];
+      }));
+    for (let i = 0; i < atualizacoes.length; i++) {
+      N.setMsg(msg, "Completando " + (i + 1) + " de " + atualizacoes.length + " cadastros…");
+      const [c, campos] = atualizacoes[i], err = await atualizar(c.id, campos);
+      if (err) falhas.push(c.nome + ": " + N.traduzirErro(err)); else if (Object.keys(campos).some((k) => k !== "bling_contato_id")) completas++;
+    }
+    await N.recarregar(["clientes"]); N.renderTudo();
+    importacao = null;
+    $("impPrevia").innerHTML = falhas.length ? '<ul class="bl-resultados">' + falhas.map((f) => '<li class="warn">' + esc(f) + "</li>").join("") + "</ul>" : "";
+    N.setMsg(msg, "Importação concluída: " + novas + (novas === 1 ? " cliente nova" : " clientes novas") + ", " + completas + (completas === 1 ? " cadastro completado" : " cadastros completados") + "." +
+      (falhas.length ? " " + falhas.length + " não entraram (motivo abaixo)." : "") + (semColuna ? " Rode o SQL do Bling de novo (aba Bling e backup, passo 1) para guardar o vínculo com o Bling." : ""), falhas.length ? "warn" : "ok");
+  });
+
   // de volta do Bling depois de autorizar: vendas.html?bling=ok
   (function () {
     const p = new URLSearchParams(location.search), v = p.get("bling");
@@ -597,6 +678,6 @@
     N.setMsg($("backupMsg"), "Cópia baixada (" + (data.vendas || []).length + " vendas, " + (data.clientes || []).length + " clientes, " + (data.produtos || []).length + " produtos). Guarde em um lugar seguro.", "ok");
   });
 
-  function renderTudo() { renderLive(); renderStock(); renderTags(); renderReg(); renderBling(); if (E.mov.length) renderHist(); }
+  function renderTudo() { renderStock(); renderTags(); renderReg(); renderBling(); if (E.mov.length) renderHist(); }
   window.LifeVendasTelas = { renderTudo, carregarMov, abrirCliente };
 })();

@@ -328,7 +328,6 @@
   .howto-steps li div{flex:1;min-width:0;}
   .howto-steps b{display:block;font-size:0.92rem;}
   .howto-steps span{display:block;font-size:0.82rem;color:var(--ink-soft);margin-top:2px;}
-  .howto-live{font-size:0.84rem;color:var(--ink-soft);margin:12px 4px 0;}
 
   .tag-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0;}
   .tag-toolbar .btn{padding:8px 13px;font-size:0.82rem;}
@@ -629,3 +628,20 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 .bl-passos ul{margin:6px 0;padding-left:18px;}
 .bl-passos code,.bl-api code{font-size:0.82rem;background:color-mix(in srgb, var(--line) 45%, transparent);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere;}
 .bl-passos .btn.small{vertical-align:middle;margin:2px 0;}
+
+/* Bling: vendedora dos pedidos */
+.bl-vendedora{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;}
+.bl-vendedora label{margin-top:0;}
+.bl-vend-linha{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.bl-vend-linha select{flex:1 1 220px;width:auto;}
+.bl-resultados .warn{color:var(--danger);}
+
+/* Cadastro: importar clientes do Bling */
+.imp-resumo{margin:12px 0 0;padding-left:18px;display:grid;gap:4px;font-size:0.9rem;}
+.imp-grupo{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;}
+.imp-grupo summary{cursor:pointer;font-weight:600;padding:4px 0;}
+.imp-grupo ul{margin:6px 0 4px;padding-left:18px;display:grid;gap:6px;font-size:0.86rem;}
+.imp-grupo li .check{margin:4px 0 0;font-size:0.84rem;}
+.imp-grupo .warn{color:var(--danger);}
+.imp-grupo .mini{color:var(--ink-soft);font-size:0.8rem;}
+#dlgCliente [aria-invalid="true"]{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb, var(--danger) 25%, transparent);}

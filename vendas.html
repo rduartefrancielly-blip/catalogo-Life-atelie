@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261112">
+  <link rel="stylesheet" href="css/vendas.css?v=20261113">
 </head>
 <body>
   <!-- Entrar -->
@@ -47,7 +47,6 @@
         <button type="button" data-tab="home" class="active">Início</button>
         <button type="button" data-tab="sales">Vendas</button>
         <button type="button" data-tab="orcamentos">Orçamentos</button>
-        <button type="button" data-tab="live">Live</button>
         <button type="button" data-tab="stock">Estoque <span class="dot" id="stockDot" hidden>0</span></button>
         <button type="button" data-tab="tags">Tags <span class="dot" id="tagsDot" hidden>0</span></button>
         <button type="button" data-tab="reg">Cadastro</button>
@@ -66,7 +65,7 @@
         <div class="hero-sub" id="homeTodaySub"></div>
         <div class="hero-actions">
           <button type="button" class="btn big" id="homeNewSale">Nova venda</button>
-          <button type="button" class="btn ghost big" id="homeLive">Colar vendas da live</button>
+          <button type="button" class="btn ghost big" data-go="orcamentos">Novo orçamento</button>
         </div>
       </div>
 
@@ -82,9 +81,8 @@
           <li><div><b>Orçamentos</b><span>Monte o orçamento com foto, preço e frete, veja a prévia e envie para a cliente pelo WhatsApp (texto, imagem ou PDF).</span></div><button type="button" class="btn ghost small" data-go="orcamentos">Abrir</button></li>
           <li><div><b>Estoque</b><span>Cada venda já tira do estoque. Para repor ou corrigir, use os botões − e + ou digite a quantidade.</span></div><button type="button" class="btn ghost small" data-go="stock">Abrir</button></li>
           <li><div><b>Tags</b><span>Escolha as tags do dia e envie o pedido para a fábrica.</span></div><button type="button" class="btn ghost small" data-go="tags">Abrir</button></li>
-          <li><div><b>Bling</b><span>Baixe a planilha das vendas e lance no Bling.</span></div><button type="button" class="btn ghost small" data-go="bling">Abrir</button></li>
+          <li><div><b>Bling</b><span>Envie as vendas direto para o Bling como pedidos de venda (ou baixe a planilha).</span></div><button type="button" class="btn ghost small" data-go="bling">Abrir</button></li>
         </ol>
-        <p class="howto-live">Dia de live? Cole as mensagens do WhatsApp na aba <b>Live</b> e o sistema preenche tudo para você conferir.</p>
       </details>
     </section>
 
@@ -278,32 +276,6 @@
       <div id="orcLista"></div>
     </section>
 
-    <!-- ============ Live ============ -->
-    <section id="panelLive" class="panel">
-      <div class="card">
-        <h2 class="sec-title">Colar vendas da live</h2>
-        <p class="mini-note" style="margin-top:0">Cole as mensagens do WhatsApp (uma ou várias clientes). O sistema lê nome, telefone, CPF, endereço, produto, cor, tag e pagamento, e mostra tudo para você conferir antes de lançar. Separe cada cliente com uma linha em branco.</p>
-        <textarea id="liveText" rows="10" style="margin-top:12px" placeholder="Maria Souza&#10;CPF 123.456.789-09&#10;(11) 99999-8888&#10;Rua das Flores, 100 apto 12 - Centro - São Paulo/SP&#10;CEP 01310-100&#10;Bolsa Alice preta&#10;Tag: MS café&#10;Pix&#10;&#10;Ana Lima&#10;Produto: Isis P dourada&#10;Pagamento: cartão 3x"></textarea>
-        <div class="form-actions" style="margin-top:12px">
-          <button type="button" class="btn" id="liveParse">Ler dados</button>
-          <button type="button" class="btn ghost" id="liveClear">Limpar</button>
-          <button type="button" class="btn ghost" id="liveTemplate">Copiar modelo para a cliente preencher</button>
-        </div>
-        <div class="comm-wrap" style="margin-top:14px">
-          <label style="margin:0">Comissão desta live</label>
-          <div class="seg" role="radiogroup" aria-label="Comissão da live">
-            <label class="seg-opt"><input type="radio" name="livecomm" value="3" checked><span>3%</span></label>
-            <label class="seg-opt"><input type="radio" name="livecomm" value="5"><span>5%</span></label>
-          </div>
-        </div>
-        <div class="form-msg" id="liveMsg"></div>
-      </div>
-      <div id="liveBulk" class="form-actions" style="margin-top:14px" hidden>
-        <button type="button" class="btn" id="liveCommitAll">Lançar todas as prontas</button>
-      </div>
-      <div id="liveDrafts"></div>
-    </section>
-
     <!-- ============ Estoque ============ -->
     <section id="panelStock" class="panel">
       <div class="summary" id="stockSummary" style="margin-top:0"></div>
@@ -375,6 +347,14 @@
         <div id="regList"></div>
       </div>
 
+      <div class="card" style="margin-top:20px" id="cardImportarBling" hidden>
+        <h2 class="sec-title">Importar clientes do Bling</h2>
+        <p class="mini-note" style="margin-top:0">Traz para cá os cadastros de clientes que já existem no Bling. Nada é apagado nem trocado: quem já está aqui só ganha os dados que faltam. Antes de gravar, você confere o que vai entrar.</p>
+        <div class="form-actions"><button type="button" class="btn" id="impBuscar">Buscar clientes no Bling</button></div>
+        <div class="form-msg" id="impMsg" role="status" aria-live="polite"></div>
+        <div id="impPrevia"></div>
+      </div>
+
       <div class="card" style="margin-top:20px" id="cardFormato">
         <h2 class="sec-title">Formato do texto da venda</h2>
         <p class="mini-note" style="margin-top:0">É o texto do botão "Copiar" de cada venda. Use estas palavras entre chaves: {cliente} {documento} {telefone} {email} {endereco} {itens} {total} {pagamento} {tags} {observacao} {numero} {data}. A linha cujos dados estiverem vazios some sozinha. Fica salvo neste aparelho.</p>
@@ -426,6 +406,15 @@
             <button type="button" class="btn" id="blEnviar" hidden>Enviar para o Bling</button>
             <button type="button" class="btn ghost" id="blConectar" hidden>Conectar ao Bling</button>
           </div>
+          <div class="bl-vendedora" id="blVendedora" hidden>
+            <label for="blVendedoraSel">Vendedora nos pedidos do Bling</label>
+            <div class="bl-vend-linha">
+              <select id="blVendedoraSel"></select>
+              <button type="button" class="btn ghost small" id="blVendedoraSalvar">Salvar</button>
+              <button type="button" class="link-btn" id="blVendedoraAtualizar">atualizar lista</button>
+            </div>
+            <div class="field-hint" id="blVendedoraMsg" aria-live="polite"></div>
+          </div>
           <div class="form-msg" id="blEnviarMsg" role="status" aria-live="polite"></div>
           <ul class="bl-resultados" id="blResultados"></ul>
           <details class="bl-instalar" id="blInstalar">
@@ -436,12 +425,12 @@
                 <ul>
                   <li>Nome: <b>Life Ateliê Sistema</b></li>
                   <li>Link de redirecionamento: <code id="blCallback"></code> <button type="button" class="btn ghost small" id="blCopiarCallback">Copiar</button></li>
-                  <li>Permissões: <b>Contatos</b>, <b>Pedidos de Venda</b>, <b>Produtos</b> e <b>Formas de Pagamento</b></li>
+                  <li>Permissões: <b>Contatos</b> e <b>Contatos: Gerenciar Contatos</b>, <b>Pedidos de Venda</b> e <b>Pedidos de Venda: Gerenciar Pedidos de Venda</b>, <b>Produtos</b>, <b>Formas de Pagamento</b> e <b>Vendedores</b></li>
                 </ul>
                 Salve e guarde o <b>Client ID</b> e o <b>Client Secret</b> (não mande para ninguém, nem por mensagem).</li>
               <li><b>Função no Supabase.</b> <b>Edge Functions</b> → <b>Deploy a new function</b> → <b>Via Editor</b> → nome <code>bling</code> → apague o exemplo, <button type="button" class="btn ghost small" data-copiar-arquivo="supabase/functions/bling/index.ts">Copiar o código</button> e cole → <b>Deploy</b>. Depois, na página da função, desligue <b>Verify JWT</b> (Enforce JWT verification) e salve.</li>
               <li><b>Segredos.</b> <b>Edge Functions</b> → <b>Secrets</b> → adicione <code>BLING_CLIENT_ID</code> e <code>BLING_CLIENT_SECRET</code> com os valores do passo 2.</li>
-              <li>Volte aqui e toque em <b>Conectar ao Bling</b>.</li>
+              <li>Volte aqui e toque em <b>Conectar ao Bling</b>. Sempre que mudar as permissões do aplicativo no Bling, toque em <b>Conectar de novo</b> para valerem.</li>
             </ol>
             <div class="form-msg" id="blInstalarMsg" role="status" aria-live="polite"></div>
           </details>
@@ -561,11 +550,11 @@
   <script src="js/config.js?v=20261022"></script>
   <script src="js/comum.js?v=20261022"></script>
   <script src="js/vendas-lib.js?v=20261023"></script>
-  <script src="js/cliente-colar.js?v=20261112"></script>
-  <script src="js/vendas.js?v=20261112"></script>
-  <script src="js/vendas-telas.js?v=20261112"></script>
+  <script src="js/cliente-colar.js?v=20261113"></script>
+  <script src="js/vendas.js?v=20261113"></script>
+  <script src="js/vendas-telas.js?v=20261113"></script>
   <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
-  <script src="js/vendas-orcamentos.js?v=20261112"></script>
+  <script src="js/vendas-orcamentos.js?v=20261113"></script>
 </body>
 </html>

@@ -60,6 +60,9 @@ alter table public.orcamentos add constraint orcamentos_ajuste_valor_check
 alter table public.orcamentos add column if not exists venda_numero integer;
 alter table public.orcamentos add column if not exists venda_em timestamptz;
 
+-- Cliente do cadastro ligada ao orçamento
+alter table public.orcamentos add column if not exists cliente_id uuid;
+
 create or replace function public.orcamento_atualizado() returns trigger
 language plpgsql as $$
 begin

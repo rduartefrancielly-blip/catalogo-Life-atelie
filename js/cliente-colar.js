@@ -217,7 +217,104 @@
     return { achou: true, campos: usar, resto };
   }
 
-  const api = { ler, dadosNaObservacao, cpfValido, cnpjValido, formatarDocumento, formatarCep, formatarTelefone, formatarNome, CAMPOS };
+  // ---------- validação do cadastro ----------
+  const telDigitos = (s) => { let d = dig(s); if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2); return d.replace(/^0+/, ""); };
+  function validarCadastro(c) {
+    const erros = [];
+    if (!limpo(c.nome)) erros.push({ campo: "nome", msg: "Escreva o nome da cliente." });
+    const doc = dig(c.documento);
+    if (limpo(c.documento) && !((doc.length === 11 && cpfValido(doc)) || (doc.length === 14 && cnpjValido(doc))))
+      erros.push({ campo: "documento", msg: "O CPF/CNPJ não confere (algum número está errado). Confira ou deixe em branco." });
+    if (limpo(c.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(limpo(c.email))) erros.push({ campo: "email", msg: "O e-mail não parece certo (exemplo: nome@gmail.com)." });
+    if (limpo(c.cep) && dig(c.cep).length !== 8) erros.push({ campo: "cep", msg: "O CEP precisa ter 8 números." });
+    if (limpo(c.uf) && !UFS.includes(limpo(c.uf).toUpperCase())) erros.push({ campo: "uf", msg: "A UF precisa ser a sigla do estado (ex.: MG)." });
+    const t = telDigitos(c.telefone);
+    if (limpo(c.telefone) && t.length !== 10 && t.length !== 11) erros.push({ campo: "telefone", msg: "O telefone precisa ter DDD e número (ex.: (31) 99999-9999)." });
+    return erros;
+  }
+
+  // Outra cliente já cadastrada que parece ser a mesma pessoa.
+  // forte = mesmo CPF/CNPJ ou mesmo nome (o nome não pode repetir); fraca = mesmo telefone ou e-mail
+  function acharDuplicadas(c, clientes, idAtual) {
+    const doc = dig(c.documento), nome = sem(c.nome), tel = telDigitos(c.telefone), email = sem(c.email);
+    const saida = [];
+    (clientes || []).forEach((x) => {
+      if (!x || x.id === idAtual) return;
+      if ((doc.length === 11 || doc.length === 14) && dig(x.documento) === doc) saida.push({ cliente: x, motivo: "o mesmo CPF/CNPJ", forte: true });
+      else if (nome && sem(x.nome) === nome) saida.push({ cliente: x, motivo: "o mesmo nome", forte: true });
+      else if (tel.length >= 10 && telDigitos(x.telefone) === tel) saida.push({ cliente: x, motivo: "o mesmo telefone", forte: false });
+      else if (email && sem(x.email) === email) saida.push({ cliente: x, motivo: "o mesmo e-mail", forte: false });
+    });
+    return saida.sort((a, b) => Number(b.forte) - Number(a.forte));
+  }
+
+  // ---------- importação das clientes do Bling ----------
+  // contatos: [{ bling_id, nome, documento, telefone, email, cep, rua, numero, complemento, bairro, cidade, uf, situacao, tipos, parcial }]
+  // Nunca apaga nem troca o que já está no sistema: quem já existe só ganha os campos vazios.
+  const CAMPOS_IMPORT = ["documento", "telefone", "email", "cep", "rua", "numero", "complemento", "bairro", "cidade", "uf"];
+  function compararImportacao(clientes, contatos) {
+    const r = { novas: [], completar: [], vincular: [], iguais: 0, conferir: [], ignoradas: [] };
+    const docOk = (s) => { const d = dig(s); return d.length === 11 || d.length === 14 ? d : ""; };
+    const porBling = new Map(), porDoc = new Map(), porNome = new Map();
+    (clientes || []).forEach((c) => {
+      if (c.bling_contato_id) porBling.set(String(c.bling_contato_id), c);
+      if (docOk(c.documento)) porDoc.set(docOk(c.documento), c);
+      porNome.set(sem(c.nome), c);
+    });
+    const vistosDoc = new Map(), vistosNome = new Map(), usados = new Set();
+    (contatos || []).forEach((b) => {
+      const nome = limpo(b.nome);
+      const tipos = (b.tipos || []).map((t) => sem(t));
+      if (b.situacao === "E") return r.ignoradas.push({ contato: b, motivo: "excluída no Bling" });
+      if (!nome || /^consumidor final$/i.test(nome)) return r.ignoradas.push({ contato: b, motivo: "sem nome / consumidor final" });
+      if (tipos.length && !tipos.some((t) => /cliente/.test(t)) && tipos.some((t) => /fornecedor|transportador|vendedor|tecnico/.test(t)))
+        return r.ignoradas.push({ contato: b, motivo: "não é cliente (" + b.tipos.join(", ") + ")" });
+      const doc = docOk(b.documento), nomeN = sem(nome);
+      // repetidas no próprio Bling
+      if (doc && vistosDoc.has(doc)) return r.conferir.push({ contato: b, motivo: "CPF/CNPJ repetido no Bling (igual ao de " + vistosDoc.get(doc) + ")" });
+      if (doc) vistosDoc.set(doc, nome);
+      let c = porBling.get(String(b.bling_id)) || (doc && porDoc.get(doc)) || null;
+      if (!c) {
+        const mesmoNome = porNome.get(nomeN);
+        if (mesmoNome) {
+          const docC = docOk(mesmoNome.documento), telC = telDigitos(mesmoNome.telefone), telB = telDigitos(b.telefone);
+          if (docC && doc && docC !== doc) return r.conferir.push({ contato: b, cliente: mesmoNome, motivo: "mesmo nome de uma cliente daqui, mas com outro CPF/CNPJ" });
+          if (telC && telB && telC === telB) c = mesmoNome; // nome e telefone iguais: é a mesma
+          else return r.conferir.push({ contato: b, cliente: mesmoNome, motivo: "mesmo nome de uma cliente daqui, sem CPF/CNPJ ou telefone para confirmar", podeCompletar: true });
+        }
+      }
+      if (c) {
+        if (usados.has(c.id)) return r.conferir.push({ contato: b, cliente: c, motivo: "outro cadastro do Bling já foi ligado a esta cliente" });
+        usados.add(c.id);
+        const campos = {}, diferencas = [];
+        CAMPOS_IMPORT.forEach((k) => {
+          const novo = limpo(b[k]), atual = limpo(c[k]);
+          if (novo && !atual) campos[k] = k === "uf" ? novo.toUpperCase() : novo;
+          else if (novo && atual && (["documento", "telefone", "cep"].includes(k) ? dig(novo) !== dig(atual) : sem(novo) !== sem(atual))) diferencas.push(k);
+        });
+        const precisaId = String(c.bling_contato_id || "") !== String(b.bling_id);
+        if (Object.keys(campos).length) r.completar.push({ cliente: c, contato: b, campos, diferencas, precisaId });
+        else { r.iguais++; if (precisaId) r.vincular.push({ cliente: c, contato: b }); }
+        return;
+      }
+      if (vistosNome.has(nomeN)) return r.conferir.push({ contato: b, motivo: "nome repetido no Bling (outro cadastro com o mesmo nome)" });
+      vistosNome.set(nomeN, true);
+      const faltam = [];
+      if (!doc) faltam.push("sem CPF/CNPJ");
+      if (!limpo(b.rua) || !limpo(b.cidade)) faltam.push("sem endereço");
+      if (!limpo(b.telefone)) faltam.push("sem telefone");
+      r.novas.push({ contato: b, faltam });
+    });
+    return r;
+  }
+  // linha para gravar no cadastro a partir de um contato do Bling
+  function linhaDoContato(b) {
+    const linha = { nome: limpo(b.nome), bling_contato_id: b.bling_id || null };
+    CAMPOS_IMPORT.forEach((k) => { const v = limpo(b[k]); linha[k] = v ? (k === "uf" ? v.toUpperCase() : v) : null; });
+    return linha;
+  }
+
+  const api = { ler, dadosNaObservacao, validarCadastro, acharDuplicadas, compararImportacao, linhaDoContato, cpfValido, cnpjValido, formatarDocumento, formatarCep, formatarTelefone, formatarNome, CAMPOS, CAMPOS_IMPORT };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else raiz.LerCliente = api;
 })(typeof window !== "undefined" ? window : globalThis);

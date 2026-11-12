@@ -44,8 +44,13 @@
   }
 
   async function gravar(dados, id) {
+    if (O.semClienteId && "cliente_id" in dados) { dados = Object.assign({}, dados); delete dados.cliente_id; }
     const q = id ? sb.from(TABELA).update(dados).eq("id", id) : sb.from(TABELA).insert(dados);
-    const { data, error } = await q.select().single();
+    let { data, error } = await q.select().single();
+    if (error && "cliente_id" in dados && /cliente_id/.test(String(error.message || ""))) {
+      O.semClienteId = true; // falta rodar o SQL novo: segue sem ligar o orçamento ao cadastro
+      return gravar(dados, id);
+    }
     if (error) throw error;
     const i = O.lista.findIndex((o) => o.id === data.id);
     if (i >= 0) O.lista[i] = data; else O.lista.unshift(data);
@@ -242,13 +247,15 @@
       },
     });
   }
+  const clienteDoOrcamento = (o) => (o.cliente_id && E.clientes.find((c) => c.id === o.cliente_id)) || clientePorNome(o.cliente_nome);
   // do orçamento já salvo (prévia): se o nome ou o WhatsApp mudarem no cadastro, o orçamento acompanha
   function abrirCadastroDoOrcamento(o) {
-    T().abrirCliente(clientePorNome(o.cliente_nome), {
+    T().abrirCliente(clienteDoOrcamento(o), {
       prefill: { nome: o.cliente_nome, telefone: o.cliente_whatsapp ? L.whatsBonito(o.cliente_whatsapp) : "" }, colar: true,
       aoSalvar: async (d) => {
         const dados = {};
         if (d.nome && d.nome !== o.cliente_nome) dados.cliente_nome = d.nome;
+        if (d.id && d.id !== o.cliente_id) dados.cliente_id = d.id;
         if (!L.whatsDigitos(o.cliente_whatsapp) && L.whatsDigitos(d.telefone)) dados.cliente_whatsapp = L.whatsDigitos(d.telefone);
         if (Object.keys(dados).length) {
           try {
@@ -379,6 +386,7 @@
     const f = lerForm();
     if (!mostrarErros(L.validar(f, modo))) return null;
     const dados = L.normalizar(f);
+    dados.cliente_id = (clientePorNome(dados.cliente_nome) || {}).id || null;
     salvando = true;
     ["orcSalvar", "orcVer", "orcCopiarForm"].forEach((id) => { $(id).disabled = true; });
     try {
@@ -691,25 +699,37 @@
     try {
       // dados da cliente escritos na observação (CPF, endereço, CEP…) vão para o cadastro dela
       const daObs = window.LerCliente.dadosNaObservacao(o.observacoes || "");
-      const sobreCadastro = daObs.achou ? await cadastroPelaObservacao(o, daObs.campos) : "";
+      const cad = daObs.achou ? await cadastroPelaObservacao(o, daObs.campos) : { html: "", nome: "" };
       const c = L.contaDe(o);
-      const html = `Venda do orçamento <b>${esc(L.numeroTexto(o.numero))}</b> de <b>${esc(o.cliente_nome)}</b>: confira, escolha a forma de pagamento e toque em <b>Registrar venda</b>.` +
-        (c.frete ? ` O frete (${esc(L.brl(c.frete))}) ficou fora do valor, na observação.` : "") + sobreCadastro;
-      N.lancarDoOrcamento(dadosDaVenda(o, daObs.resto), { html, chave: o.id, aoRegistrar: (res) => marcarVendido(o, res) });
+      const nomeVenda = cad.nome || (clienteDoOrcamento(o) || {}).nome || o.cliente_nome;
+      const html = `Venda do orçamento <b>${esc(L.numeroTexto(o.numero))}</b> de <b>${esc(nomeVenda)}</b>: confira, escolha a forma de pagamento e toque em <b>Registrar venda</b>.` +
+        (c.frete ? ` O frete (${esc(L.brl(c.frete))}) ficou fora do valor, na observação.` : "") + cad.html;
+      N.lancarDoOrcamento(Object.assign(dadosDaVenda(o, daObs.resto), { nome: nomeVenda }), { html, chave: o.id, aoRegistrar: (res) => marcarVendido(o, res) });
     } finally { lancando = false; }
   }
   const NOME_DADO = { documento: "CPF/CNPJ", email: "e-mail", telefone: "telefone", cep: "CEP", rua: "endereço", numero: "endereço", complemento: "endereço", bairro: "endereço", cidade: "endereço", uf: "endereço" };
   async function cadastroPelaObservacao(o, campos) {
     const quais = [...new Set(["documento", "rua", "numero", "complemento", "bairro", "cidade", "uf", "cep", "telefone", "email"].filter((k) => campos[k]).map((k) => NOME_DADO[k]))].join(", ");
-    const c = clientePorNome(o.cliente_nome);
+    let c = clienteDoOrcamento(o), aviso = "";
+    if (!c && campos.documento) { // o CPF já está cadastrado em outro nome: usa esse cadastro (não duplica)
+      const d = window.LerCliente.acharDuplicadas({ nome: o.cliente_nome, documento: campos.documento }, E.clientes).find((x) => x.forte);
+      if (d) { c = d.cliente; aviso = ` Ela já estava cadastrada como <b>${esc(c.nome)}</b> (mesmo CPF/CNPJ): a venda vai nesse cadastro.`; }
+    }
+    const invalidos = window.LerCliente.validarCadastro(Object.assign({ nome: o.cliente_nome }, campos)).map((x) => x.campo);
+    invalidos.forEach((k) => delete campos[k]); // dado com formato errado não vai para o cadastro
     try {
-      const r = c ? await sb.from("clientes").update(campos).eq("id", c.id) : await sb.from("clientes").insert(Object.assign({ nome: o.cliente_nome }, campos));
+      const r = c ? await sb.from("clientes").update(campos).eq("id", c.id).select().single() : await sb.from("clientes").insert(Object.assign({ nome: o.cliente_nome }, campos)).select().single();
       if (r.error) throw r.error;
       await N.recarregar(["clientes"]);
+      if (r.data && r.data.id && r.data.id !== o.cliente_id) gravar({ cliente_id: r.data.id }, o.id).catch(() => {});
       atualizarCadastro();
-      return ` <br>Os dados que estavam na observação (${esc(quais)}) foram para o cadastro de ${esc(o.cliente_nome)}.`;
+      return {
+        nome: (r.data && r.data.nome) || "",
+        html: ` <br>Os dados que estavam na observação (${esc(quais)}) foram para o cadastro de ${esc((r.data && r.data.nome) || o.cliente_nome)}.` + aviso +
+          (invalidos.length ? ` Não usei: ${esc(invalidos.map((k) => NOME_DADO[k] || k).join(", "))} (formato errado, confira).` : ""),
+      };
     } catch (e) {
-      return ` <br>Não consegui levar os dados da observação para o cadastro: ${esc(N.traduzirErro(e))}.`;
+      return { nome: "", html: ` <br>Não consegui levar os dados da observação para o cadastro: ${esc(N.traduzirErro(e))}.` };
     }
   }
   async function marcarVendido(o, res) {

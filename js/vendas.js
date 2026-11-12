@@ -1,5 +1,5 @@
 // Life Ateliê · Vendas: núcleo (entrar, dados, Início e Vendas no jeito do sistema antigo).
-// As outras abas (Live, Estoque, Tags, Cadastro, Bling e backup) ficam em vendas-telas.js.
+// As outras abas (Estoque, Tags, Cadastro, Bling e backup) ficam em vendas-telas.js.
 (function () {
   "use strict";
   const { cfg, esc, configurado } = window.Life;
@@ -197,7 +197,7 @@
   }
 
   // ---------- abas ----------
-  const ABAS = ["home", "sales", "orcamentos", "live", "stock", "tags", "reg", "bling"];
+  const ABAS = ["home", "sales", "orcamentos", "stock", "tags", "reg", "bling"];
   function iniciarAbas() {
     $("abas").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
     document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) showTab(g.dataset.go); });
@@ -264,7 +264,6 @@
       : '<div class="todo-list"><div class="todo-empty"><b>Tudo em dia</b>Nada pendente por aqui.</div></div>';
   }
   $("homeNewSale").addEventListener("click", () => { resetSaleForm(); showTab("sales"); $("saleClient").focus(); });
-  $("homeLive").addEventListener("click", () => { showTab("live"); $("liveText").focus(); });
 
   // =====================================================================
   // FORMULÁRIO DE VENDA (como no sistema antigo)
@@ -615,7 +614,7 @@
     valueHint.innerHTML = "";
     updateSaleClientInfo(); updateCommReadout(); updatePaymentUI(); updateTagBox();
   }
-  // preenche o formulário (usado ao revisar uma venda da live, repetir ou editar)
+  // preenche o formulário (usado ao repetir, editar ou lançar a venda de um orçamento)
   function preencherForm(d) {
     doOrcamento = null; mostrarOrcBanner(); // quem precisar (orçamento) liga de novo depois
     saleClient.value = d.nome || "";
@@ -637,7 +636,7 @@
     if (d.valor == null) applySuggestedPrice();
   }
 
-  // monta o pedido para o banco (usado pelo formulário e pela live)
+  // monta o pedido para o banco (usado pelo formulário de vendas)
   function precificar(itens, valor) {
     const conhecido = itens.reduce((t, i) => t + (i.preco != null ? i.preco * i.quantidade : 0), 0);
     const qtdSem = itens.filter((i) => i.preco == null).reduce((t, i) => t + i.quantidade, 0);
