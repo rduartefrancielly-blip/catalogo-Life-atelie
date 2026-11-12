@@ -455,9 +455,122 @@
   }
   function renderBling() {
     const l = vendasDoBling(), soma = l.reduce((t, v) => t + v.valor_total, 0);
-    $("blPreview").textContent = l.length + (l.length === 1 ? " venda" : " vendas") + " · " + brl(soma);
+    $("blPreview").textContent = l.length + (l.length === 1 ? " venda" : " vendas") + " no período · " + brl(soma);
     $("cardBackup").hidden = !N.ehAdmin();
+    $("blApi").hidden = !N.ehAdmin();
+    if (!N.ehAdmin()) { $("blPlanilha").open = true; return; }
+    if (!BL.status && !BL.carregando) atualizarStatusBling(); else desenharBlingApi();
   }
+
+  // ---------- envio direto pela API do Bling (função "bling" do Supabase) ----------
+  const BL = { status: null, carregando: false, enviando: false, aviso: null };
+  const cfgSb = () => window.Life.cfg;
+  const urlFuncao = (acao) => cfgSb().supabaseUrl.replace(/\/+$/, "") + "/functions/v1/bling/" + acao;
+  $("blCallback").textContent = urlFuncao("retorno");
+  async function chamarBling(acao, corpo) {
+    const { data } = await sb.auth.getSession();
+    const token = data && data.session ? data.session.access_token : "";
+    let r;
+    try {
+      r = await fetch(urlFuncao(acao), {
+        method: corpo ? "POST" : "GET",
+        headers: Object.assign({ Authorization: "Bearer " + token, apikey: cfgSb().supabaseAnonKey }, corpo ? { "Content-Type": "application/json" } : {}),
+        body: corpo ? JSON.stringify(corpo) : undefined,
+      });
+    } catch (e) { return { semFuncao: true }; }
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 404 && !d.erro) return { semFuncao: true };
+    if (r.status === 401 && !d.erro) return { erro: "A função do Bling está pedindo login do Supabase: desligue o \"Verify JWT\" nas configurações da função (passo 3)." };
+    if (!r.ok) return Object.assign({}, d, { erro: d.erro || d.message || "A função do Bling respondeu com erro " + r.status + "." });
+    return d;
+  }
+  async function atualizarStatusBling() {
+    BL.carregando = true;
+    $("blApiStatus").textContent = "Conferindo a conexão com o Bling…";
+    try { BL.status = await chamarBling("status"); } finally { BL.carregando = false; }
+    desenharBlingApi();
+  }
+  const pendentesBling = () => vendasDoBling().filter((v) => !v.bling_id);
+  function desenharBlingApi() {
+    const s = BL.status || {}, st = $("blApiStatus"), env = $("blEnviar"), con = $("blConectar");
+    const n = pendentesBling().length;
+    env.hidden = true; con.hidden = true;
+    if (s.semFuncao) st.innerHTML = "A integração ainda não foi instalada no Supabase. Siga o <b>passo a passo</b> abaixo (uma vez só).";
+    else if (s.faltam_segredos) st.innerHTML = "A função está instalada, mas faltam os segredos do Bling (passo 4 abaixo).";
+    else if (s.erro) st.textContent = s.erro;
+    else if (!s.conectado) { st.textContent = "Ainda não conectado ao Bling."; con.hidden = false; con.textContent = "Conectar ao Bling"; con.className = "btn"; }
+    else {
+      st.textContent = "Conectado ao Bling ✓" + (s.conectado_em ? " desde " + N.dataCurta(s.conectado_em) : "") + ". As vendas viram pedidos de venda lá, com a cliente, os produtos (pelo código) e a forma de pagamento.";
+      env.hidden = false; env.disabled = !n || BL.enviando;
+      env.textContent = n ? "Enviar " + n + (n === 1 ? " venda" : " vendas") + " para o Bling" : "Nenhuma venda para enviar neste período";
+      con.hidden = false; con.textContent = "Conectar de novo"; con.className = "btn ghost";
+    }
+    $("blInstalar").open = !!(s.semFuncao || s.faltam_segredos || s.erro || !s.conectado);
+    // vendas que não foram na última tentativa: mostra o motivo (se a lista do último envio não estiver na tela)
+    if (!BL.enviando && !$("blResultados").dataset.agora) {
+      const comErro = pendentesBling().filter((v) => v.bling_erro);
+      $("blResultados").innerHTML = comErro.map((v) => '<li class="warn">Venda nº ' + esc(String(v.numero)) + " não foi na última tentativa: " + esc(v.bling_erro) + "</li>").join("");
+    }
+    if (BL.aviso) { N.setMsg($("blEnviarMsg"), BL.aviso.texto, BL.aviso.tipo); BL.aviso = null; }
+  }
+  $("blConectar").addEventListener("click", async (e) => {
+    const botao = e.currentTarget;
+    botao.disabled = true;
+    const d = await chamarBling("iniciar", { volta: location.origin + location.pathname });
+    botao.disabled = false;
+    if (d.url) { location.href = d.url; return; }
+    N.setMsg($("blEnviarMsg"), d.semFuncao ? "A função do Bling ainda não foi instalada (passo 3)." : d.erro || "Não consegui começar a conexão.", "warn");
+  });
+  $("blEnviar").addEventListener("click", async () => {
+    const lista = pendentesBling();
+    if (!lista.length || BL.enviando) return;
+    if (!window.confirm("Enviar " + lista.length + (lista.length === 1 ? " venda" : " vendas") + " para o Bling? Cada uma vira um pedido de venda lá (uma venda nunca vira dois pedidos).")) return;
+    BL.enviando = true; desenharBlingApi();
+    const msg = $("blEnviarMsg"), res = [];
+    let parou = "";
+    for (let i = 0; i < lista.length; i += 10) {
+      N.setMsg(msg, "Enviando " + Math.min(i + 10, lista.length) + " de " + lista.length + "… (deixe esta tela aberta)");
+      const d = await chamarBling("enviar", { ids: lista.slice(i, i + 10).map((v) => v.id) });
+      (d.resultados || []).forEach((x) => res.push(x));
+      if (d.reconectar) BL.status = Object.assign({}, BL.status, { conectado: false });
+      if (d.erro || d.semFuncao) { parou = d.semFuncao ? "A função do Bling não respondeu." : d.erro; break; }
+    }
+    BL.enviando = false;
+    await N.recarregar(["vendas"]); N.renderTudo();
+    const okN = res.filter((x) => x.ok).length, erros = res.filter((x) => !x.ok);
+    $("blResultados").dataset.agora = "1";
+    $("blResultados").innerHTML = res.map((x) => '<li class="' + (x.ok ? "ok" : "warn") + '">' + (x.ok
+      ? "Venda nº " + esc(String(x.numero)) + " → pedido " + (x.bling_numero ? "nº " + esc(x.bling_numero) + " " : "") + "no Bling ✓" + (x.ja ? " (já estava lá)" : "")
+      : "Venda nº " + esc(String(x.numero || "?")) + ": " + esc(x.erro || "não foi")) + "</li>").join("");
+    N.setMsg(msg, (okN ? okN + (okN === 1 ? " venda enviada" : " vendas enviadas") + " para o Bling." : "") + (erros.length ? " " + erros.length + (erros.length === 1 ? " não foi" : " não foram") + ": veja o motivo abaixo, corrija e envie de novo." : "") + (parou ? " " + parou : ""), erros.length || parou ? "warn" : "ok");
+    desenharBlingApi();
+  });
+  // instalação: copiar o SQL, o código da função e o link de redirecionamento
+  $("blInstalar").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-copiar-arquivo]");
+    if (!b) return;
+    try {
+      const r = await fetch(b.dataset.copiarArquivo + "?v=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error();
+      const ok = await N.copiar(await r.text());
+      N.setMsg($("blInstalarMsg"), ok ? (b.textContent.includes("SQL") ? "SQL copiado. Cole no SQL Editor do Supabase e toque em Run." : "Código copiado. Cole no editor da função no Supabase e toque em Deploy.") : "Não consegui copiar sozinho. Tente de novo.", ok ? "ok" : "warn");
+    } catch (_) { N.setMsg($("blInstalarMsg"), "Não consegui buscar o arquivo. Atualize a página e tente de novo.", "warn"); }
+  });
+  $("blCopiarCallback").addEventListener("click", async () => {
+    const ok = await N.copiar(urlFuncao("retorno"));
+    N.setMsg($("blInstalarMsg"), ok ? "Link copiado. Cole no campo de link de redirecionamento do aplicativo no Bling." : "Não consegui copiar. Selecione o link e copie.", ok ? "ok" : "warn");
+  });
+  // de volta do Bling depois de autorizar: vendas.html?bling=ok
+  (function () {
+    const p = new URLSearchParams(location.search), v = p.get("bling");
+    if (!v) return;
+    const textos = { ok: ["Bling conectado ✓ Agora é só enviar as vendas.", "ok"], recusado: ["A autorização foi cancelada no Bling. Toque em Conectar ao Bling para tentar de novo.", "warn"], expirou: ["O link de autorização expirou. Toque em Conectar ao Bling de novo.", "warn"], erro: ["O Bling não aceitou a conexão. Confira o Client ID e o Client Secret (passo 4) e tente de novo.", "warn"] };
+    const t = textos[v] || textos.erro;
+    BL.aviso = { texto: t[0], tipo: t[1] };
+    p.delete("bling");
+    history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + location.hash);
+    try { sessionStorage.setItem("life-aba", "bling"); } catch (_) { /* sem armazenamento */ }
+  })();
   ["blFrom", "blTo", "blOnlyNew", "blOnlyPaid"].forEach((id) => $(id).addEventListener("change", renderBling));
   $("blExport").addEventListener("click", async () => {
     const lista = vendasDoBling(), msg = $("blMsg");

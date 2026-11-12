@@ -35,6 +35,27 @@ O filtro **Com pendências** mostra os produtos com dados faltando.
 
 No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética**. Para tirar as esgotadas da vitrine: aba **Loja** → desmarque "Mostrar peças esgotadas".
 
+### Vendas direto para o Bling
+
+Na tela de vendas, aba **Bling e backup**, a administradora envia as vendas do período direto para o Bling. Cada venda vira um **pedido de venda** lá:
+- **Cliente:** procurada pelo CPF/CNPJ ou pelo nome; se não existir, é cadastrada com o endereço.
+- **Produtos:** ligados pelo código (SKU do Bling ou código do site).
+- **Forma de pagamento:** Pix; cartão parcelado mês a mês; "aguardando" vai na forma padrão.
+
+Detalhes:
+- A venda guarda o número do pedido do Bling e nunca vira dois pedidos, nem se for enviada de novo (referência `LIFE-nº da venda`).
+- Se uma venda não for, o motivo aparece na aba. É só corrigir e enviar de novo.
+- A planilha antiga continua disponível em "Baixar planilha para importar no Bling".
+
+**Para ligar (uma vez só):** o passo a passo está na própria aba, com botões para copiar o SQL, o código e o link. Em resumo:
+1. Rode [`supabase/bling.sql`](supabase/bling.sql).
+2. Crie o aplicativo no Bling com o link de redirecionamento `https://<projeto>.supabase.co/functions/v1/bling/retorno`.
+3. Publique a função [`supabase/functions/bling/index.ts`](supabase/functions/bling/index.ts) no Supabase, com o nome `bling` e o **Verify JWT desligado**.
+4. Guarde os segredos `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET` em Edge Functions → Secrets.
+5. Toque em **Conectar ao Bling**.
+
+O Client Secret fica só no Supabase, nunca no site.
+
 ### Compartilhar um modelo ou uma peça
 
 No catálogo, cada modelo (ex.: **Alice**) tem o botão **Compartilhar**, ao lado do nome. Ele vale também na aba do modelo. Cada peça tem **Compartilhar esta peça** na página dela.
@@ -141,7 +162,8 @@ O que falta ou merece conferência:
 index.html, admin.html   páginas do catálogo e da área administrativa
 css/tema.css             cores e fontes da marca (troque aqui)
 js/config.js             conexão com o banco
-supabase/*.sql           banco de dados e carga inicial (orcamentos.sql: aba Orçamentos)
+supabase/*.sql           banco de dados e carga inicial (orcamentos.sql: Orçamentos; bling.sql: Bling)
+supabase/functions/bling/ função do Supabase que conecta e envia as vendas ao Bling
 ferramentas/site/        páginas products.json originais da loja (2 a 5)
 ferramentas/             extrator, dados da página 1, gerador dos arquivos SQL e de js/fotos-importacao.json
 vendor/supabase.js       biblioteca oficial do Supabase (v2.117.2)

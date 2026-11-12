@@ -614,3 +614,18 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 @keyframes preenchido{from{background:color-mix(in srgb, var(--sage) 28%, var(--paper-raised));}to{background:var(--paper-raised);}}
 #dlgCliente .preenchido{animation:preenchido 1.6s ease-out;}
 @media (prefers-reduced-motion: reduce){#dlgCliente .preenchido{animation:none;}}
+
+/* Bling: envio direto e passo a passo */
+.bl-api{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);}
+.bl-sub{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.3rem;font-weight:600;margin:0 0 4px;}
+.bl-resultados{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:0.88rem;}
+.bl-resultados:empty{display:none;}
+.bl-resultados li{padding:8px 10px;border:1px solid var(--line);border-radius:10px;}
+.bl-resultados li.ok{border-color:color-mix(in srgb, var(--sage) 45%, var(--line));}
+.bl-resultados li.warn{border-color:color-mix(in srgb, var(--danger) 45%, var(--line));color:var(--danger);}
+.bl-instalar,.bl-planilha{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;}
+.bl-instalar summary,.bl-planilha summary{cursor:pointer;font-weight:600;padding:4px 0;}
+.bl-passos{margin:10px 0 0;padding-left:20px;display:grid;gap:10px;font-size:0.9rem;line-height:1.5;}
+.bl-passos ul{margin:6px 0;padding-left:18px;}
+.bl-passos code,.bl-api code{font-size:0.82rem;background:color-mix(in srgb, var(--line) 45%, transparent);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere;}
+.bl-passos .btn.small{vertical-align:middle;margin:2px 0;}

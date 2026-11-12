@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261111">
+  <link rel="stylesheet" href="css/vendas.css?v=20261112">
 </head>
 <body>
   <!-- Entrar -->
@@ -409,17 +409,51 @@
     <!-- ============ Bling e backup ============ -->
     <section id="panelBling" class="panel">
       <div class="card">
-        <h2 class="sec-title">Exportar vendas para o Bling</h2>
-        <p class="mini-note" style="margin-top:0">Gera uma planilha das vendas do período (sem as canceladas) para conferir e importar no Bling. Teste com uma venda antes de levar várias: a ordem das colunas ainda não foi conferida com a importação do Bling.</p>
-        <div class="filters" style="margin-top:12px">
+        <h2 class="sec-title">Vendas para o Bling</h2>
+        <div class="filters" style="margin-top:4px">
           <label style="margin:0">De</label><input type="date" id="blFrom">
           <label style="margin:0">Até</label><input type="date" id="blTo">
         </div>
-        <label class="check"><input type="checkbox" id="blOnlyNew" checked> Só vendas que ainda não foram lançadas no Bling</label>
+        <label class="check"><input type="checkbox" id="blOnlyNew" checked> Só vendas que ainda não foram para o Bling</label>
         <label class="check"><input type="checkbox" id="blOnlyPaid"> Só vendas já pagas</label>
-        <label class="check"><input type="checkbox" id="blMark" checked> Marcar como lançadas no Bling depois de baixar</label>
-        <div class="form-actions"><button type="button" class="btn" id="blExport">Baixar planilha</button><span class="mini-note" id="blPreview" style="margin:0"></span></div>
-        <div class="form-msg" id="blMsg"></div>
+        <p class="mini-note" id="blPreview"></p>
+
+        <!-- Envio direto pela API (só a administradora) -->
+        <div class="bl-api" id="blApi" hidden>
+          <h3 class="bl-sub">Enviar direto para o Bling</h3>
+          <p class="mini-note" id="blApiStatus" aria-live="polite"></p>
+          <div class="form-actions">
+            <button type="button" class="btn" id="blEnviar" hidden>Enviar para o Bling</button>
+            <button type="button" class="btn ghost" id="blConectar" hidden>Conectar ao Bling</button>
+          </div>
+          <div class="form-msg" id="blEnviarMsg" role="status" aria-live="polite"></div>
+          <ul class="bl-resultados" id="blResultados"></ul>
+          <details class="bl-instalar" id="blInstalar">
+            <summary>Passo a passo para ligar o Bling (uma vez só)</summary>
+            <ol class="bl-passos">
+              <li><b>Banco de dados.</b> No Supabase: <b>SQL Editor</b> → <b>New query</b> → <button type="button" class="btn ghost small" data-copiar-arquivo="supabase/bling.sql">Copiar o SQL</button> → cole → <b>Run</b>. Tem que aparecer "Bling pronto ✓".</li>
+              <li><b>Aplicativo no Bling.</b> No Bling (logado na conta da empresa), abra a <b>Área do Integrador</b> (pela <b>Central de Extensões</b>) e crie um aplicativo para uso da própria empresa:
+                <ul>
+                  <li>Nome: <b>Life Ateliê Sistema</b></li>
+                  <li>Link de redirecionamento: <code id="blCallback"></code> <button type="button" class="btn ghost small" id="blCopiarCallback">Copiar</button></li>
+                  <li>Permissões: <b>Contatos</b>, <b>Pedidos de Venda</b>, <b>Produtos</b> e <b>Formas de Pagamento</b></li>
+                </ul>
+                Salve e guarde o <b>Client ID</b> e o <b>Client Secret</b> (não mande para ninguém, nem por mensagem).</li>
+              <li><b>Função no Supabase.</b> <b>Edge Functions</b> → <b>Deploy a new function</b> → <b>Via Editor</b> → nome <code>bling</code> → apague o exemplo, <button type="button" class="btn ghost small" data-copiar-arquivo="supabase/functions/bling/index.ts">Copiar o código</button> e cole → <b>Deploy</b>. Depois, na página da função, desligue <b>Verify JWT</b> (Enforce JWT verification) e salve.</li>
+              <li><b>Segredos.</b> <b>Edge Functions</b> → <b>Secrets</b> → adicione <code>BLING_CLIENT_ID</code> e <code>BLING_CLIENT_SECRET</code> com os valores do passo 2.</li>
+              <li>Volte aqui e toque em <b>Conectar ao Bling</b>.</li>
+            </ol>
+            <div class="form-msg" id="blInstalarMsg" role="status" aria-live="polite"></div>
+          </details>
+        </div>
+
+        <details class="bl-planilha" id="blPlanilha">
+          <summary>Baixar planilha para importar no Bling</summary>
+          <p class="mini-note">Gera uma planilha das vendas do período (sem as canceladas) para conferir e importar no Bling.</p>
+          <label class="check"><input type="checkbox" id="blMark" checked> Marcar como lançadas no Bling depois de baixar</label>
+          <div class="form-actions"><button type="button" class="btn ghost" id="blExport">Baixar planilha</button></div>
+          <div class="form-msg" id="blMsg"></div>
+        </details>
       </div>
 
       <div class="card" style="margin-top:20px">
@@ -529,7 +563,7 @@
   <script src="js/vendas-lib.js?v=20261023"></script>
   <script src="js/cliente-colar.js?v=20261112"></script>
   <script src="js/vendas.js?v=20261112"></script>
-  <script src="js/vendas-telas.js?v=20261111"></script>
+  <script src="js/vendas-telas.js?v=20261112"></script>
   <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
   <script src="js/vendas-orcamentos.js?v=20261112"></script>
