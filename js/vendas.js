@@ -711,7 +711,7 @@
     if (!salePayment.value) return aviso2("Escolha a forma de pagamento.", salePayment);
     const tags = readTagRows();
     return {
-      nome, linhas, valor, pagamento: salePayment.value, parcelas: salePayment.value === "credito" ? parseInt(saleInstallments.value, 10) || 1 : null,
+      nome, info: clienteExistente(nome) || {}, linhas, valor, pagamento: salePayment.value, parcelas: salePayment.value === "credito" ? parseInt(saleInstallments.value, 10) || 1 : null,
       pct: currentPct(), obs: saleNote.value.slice(0, 500).trim(), tagsCompradas: tags.filter((t) => t.comprada), tagsLivres: tags.filter((t) => !t.comprada),
     };
   }

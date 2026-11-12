@@ -670,25 +670,47 @@
     const s = V.separarNome(it.nome); // escrito à mão: "Bolsa Alice" → "Alice"
     return { produto: s.modelo || it.nome, cor: it.cor || s.cor || "", qtd };
   }
-  function dadosDaVenda(o) {
+  function dadosDaVenda(o, observacao) {
     const c = L.contaDe(o);
     const obs = ["Orçamento " + L.numeroTexto(o.numero)];
     if (c.ajuste.tipo) obs.push(c.ajuste.rotulo + ": " + L.valorAjuste(c.ajuste.valor));
     if (c.frete) obs.push("Frete " + L.brl(c.frete) + " (fora do valor da venda)");
-    if (o.observacoes) obs.push(String(o.observacoes).replace(/\s+/g, " ").trim());
+    const extra = observacao != null ? observacao : o.observacoes;
+    if (extra) obs.push(String(extra).replace(/\s+/g, " ").trim());
     return {
       nome: o.cliente_nome, linhas: (o.itens || []).filter((it) => !L.itemVazio(it)).map(linhaDeVenda),
       valor: L.arred(c.total - c.frete), pagamento: "", parcelas: 1, pct: N.currentPct(), obs: obs.join(" · ").slice(0, 500),
     };
   }
-  function lancarVenda(o) {
-    if (o.venda_numero) return;
+  let lancando = false;
+  async function lancarVenda(o) {
+    if (o.venda_numero || lancando) return;
     if (editando && editando.id === o.id && sujo) { N.aviso("Salve as alterações do orçamento antes de lançar a venda.", true); return; }
     if (dlg.open) dlg.close();
-    const c = L.contaDe(o);
-    const html = `Venda do orçamento <b>${esc(L.numeroTexto(o.numero))}</b> de <b>${esc(o.cliente_nome)}</b>: confira, escolha a forma de pagamento e toque em <b>Registrar venda</b>.` +
-      (c.frete ? ` O frete (${esc(L.brl(c.frete))}) ficou fora do valor, na observação.` : "");
-    N.lancarDoOrcamento(dadosDaVenda(o), { html, chave: o.id, aoRegistrar: (res) => marcarVendido(o, res) });
+    lancando = true;
+    try {
+      // dados da cliente escritos na observação (CPF, endereço, CEP…) vão para o cadastro dela
+      const daObs = window.LerCliente.dadosNaObservacao(o.observacoes || "");
+      const sobreCadastro = daObs.achou ? await cadastroPelaObservacao(o, daObs.campos) : "";
+      const c = L.contaDe(o);
+      const html = `Venda do orçamento <b>${esc(L.numeroTexto(o.numero))}</b> de <b>${esc(o.cliente_nome)}</b>: confira, escolha a forma de pagamento e toque em <b>Registrar venda</b>.` +
+        (c.frete ? ` O frete (${esc(L.brl(c.frete))}) ficou fora do valor, na observação.` : "") + sobreCadastro;
+      N.lancarDoOrcamento(dadosDaVenda(o, daObs.resto), { html, chave: o.id, aoRegistrar: (res) => marcarVendido(o, res) });
+    } finally { lancando = false; }
+  }
+  const NOME_DADO = { documento: "CPF/CNPJ", email: "e-mail", telefone: "telefone", cep: "CEP", rua: "endereço", numero: "endereço", complemento: "endereço", bairro: "endereço", cidade: "endereço", uf: "endereço" };
+  async function cadastroPelaObservacao(o, campos) {
+    const quais = [...new Set(["documento", "rua", "numero", "complemento", "bairro", "cidade", "uf", "cep", "telefone", "email"].filter((k) => campos[k]).map((k) => NOME_DADO[k]))].join(", ");
+    const c = clientePorNome(o.cliente_nome);
+    try {
+      const r = c ? await sb.from("clientes").update(campos).eq("id", c.id) : await sb.from("clientes").insert(Object.assign({ nome: o.cliente_nome }, campos));
+      if (r.error) throw r.error;
+      await N.recarregar(["clientes"]);
+      atualizarCadastro();
+      return ` <br>Os dados que estavam na observação (${esc(quais)}) foram para o cadastro de ${esc(o.cliente_nome)}.`;
+    } catch (e) {
+      return ` <br>Não consegui levar os dados da observação para o cadastro: ${esc(N.traduzirErro(e))}.`;
+    }
   }
   async function marcarVendido(o, res) {
     const numero = res && res.numero;

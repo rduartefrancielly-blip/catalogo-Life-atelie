@@ -190,7 +190,34 @@
     return { campos: out, naoEntendi };
   }
 
-  const api = { ler, cpfValido, cnpjValido, formatarDocumento, formatarCep, formatarTelefone, formatarNome, CAMPOS };
+  // Dados da cliente escritos no meio de uma observação ("Entrega sexta\nCPF 123...\nRua X, 10 - Centro").
+  // Só conta como dados se tiver CPF/CNPJ, CEP, rua ou e-mail (um telefone sozinho não basta).
+  // Devolve os campos de cadastro (sem o nome: quem manda é o nome do orçamento) e a observação sem essas linhas.
+  const DE_CADASTRO = ["documento", "email", "telefone", "cep", "rua", "numero", "complemento", "bairro", "cidade", "uf"];
+  const FORTES = ["documento", "email", "cep", "rua"];
+  function dadosNaObservacao(texto) {
+    const original = String(texto == null ? "" : texto).trim();
+    const { campos } = ler(original);
+    if (!FORTES.some((k) => campos[k])) return { achou: false, campos: {}, resto: original };
+    const usar = {};
+    DE_CADASTRO.forEach((k) => { if (campos[k]) usar[k] = campos[k]; });
+    // tira da observação as linhas que eram dados da cliente (o resto continua sendo observação)
+    const resto = original.split("\n").filter((linha) => {
+      const t = linha.replace(/^[^\p{L}\p{N}(+]+/u, "").replace(/\*/g, "").trim();
+      if (!t) return false;
+      const rot = t.match(/^([^:=]{1,32}?)\s*[:=]/);
+      const campoRot = rot ? campoDoRotulo(rot[1]) : null;
+      if (campoRot && campoRot !== "observacoes") return false;
+      const c = ler(t).campos;
+      if (["documento", "email", "telefone", "cep", "rua"].some((k) => c[k])) return false;
+      if (c.cidade && c.uf) return false;
+      if (campos.bairro && limpo(t) === campos.bairro) return false;
+      return true;
+    }).join("\n").trim();
+    return { achou: true, campos: usar, resto };
+  }
+
+  const api = { ler, dadosNaObservacao, cpfValido, cnpjValido, formatarDocumento, formatarCep, formatarTelefone, formatarNome, CAMPOS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else raiz.LerCliente = api;
 })(typeof window !== "undefined" ? window : globalThis);

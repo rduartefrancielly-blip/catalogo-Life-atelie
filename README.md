@@ -93,7 +93,7 @@ Na página de vendas (`vendas.html`), a aba **Orçamentos** monta um orçamento 
 | Acompanhar | A lista mostra data e situação (Rascunho, Enviado, Aprovado, Recusado). Ao copiar ou enviar, o rascunho passa para **Enviado** sozinho |
 | Editar, duplicar, excluir | Botões ✎, **Duplicar** e ✕ em cada orçamento da lista |
 | Cadastrar a cliente com o que ela mandou | No orçamento: **Colar dados da cliente** (ou, na prévia, **Dados da cliente**) → cole a mensagem dela → os campos (nome, CPF, endereço, CEP, telefone, e-mail) se preenchem sozinhos, e o CEP completa rua, bairro e cidade → confira → **Salvar**. Também funciona em **Cadastro → + Nova cliente** |
-| Lançar a venda do orçamento aprovado e pago | Situação **Aprovado** → **Lançar venda** (na lista ou na prévia) → a aba Vendas abre preenchida (cliente, produtos, valor com desconto, observação com o nº do orçamento e o frete) → escolha o pagamento → **Registrar venda**. O estoque baixa e a comissão é calculada como numa venda normal, e o orçamento fica com o selo **Venda nº …** |
+| Lançar a venda do orçamento aprovado e pago | Situação **Aprovado** → **Lançar venda** (na lista ou na prévia) → a aba Vendas abre preenchida (cliente, produtos, valor com desconto, observação com o nº do orçamento e o frete) → escolha o pagamento → **Registrar venda**. O estoque baixa e a comissão é calculada como numa venda normal, e o orçamento fica com o selo **Venda nº …**. Se você escreveu os dados da cliente (CPF, endereço, CEP, e-mail) nas **Observações** do orçamento, eles vão sozinhos para o cadastro dela e saem da observação da venda |
 
 ---
 
