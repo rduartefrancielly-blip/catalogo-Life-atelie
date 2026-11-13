@@ -422,33 +422,54 @@
   // =====================================================================
   const resumoItens = (o) => (o.itens || []).map((it) => L.nomeDoItem(it) + (it.quantidade > 1 ? " × " + it.quantidade : "")).join("; ");
   const palha = (o) => V.norm([o.cliente_nome, o.cliente_whatsapp, "#" + o.numero, "nº " + o.numero, String(o.numero), L.statusNome(o.status), resumoItens(o), o.observacoes, o.venda_numero ? "vendido venda " + o.venda_numero : ""].join(" "));
+  // Finalizado = o orçamento virou venda e essa venda já está no Bling (enviada pela API ou marcada à mão).
+  // Ele sai de Todos/Rascunho/Enviado/Aprovado/Recusado e fica só no filtro "Finalizados".
+  const vendaDoOrcamento = (o) => (o.venda_numero ? (E.vendas || []).find((v) => String(v.numero) === String(o.venda_numero)) : null);
+  const vendaNoBling = (v) => !!v && (!!v.bling_id || v.bling_status === "exportada" || v.bling_status === "enviada");
+  const finalizado = (o) => vendaNoBling(vendaDoOrcamento(o));
+  const somaDe = (lista) => lista.reduce((t, o) => t + L.contaDe(o).total, 0);
   function renderLista() {
-    const contagem = { todos: O.lista.length };
-    L.STATUS.forEach((s) => { contagem[s.id] = O.lista.filter((o) => o.status === s.id).length; });
-    $("orcFiltro").innerHTML = [{ id: "todos", nome: "Todos" }].concat(L.STATUS)
+    const fin = O.lista.filter(finalizado);
+    const ativos = O.lista.filter((o) => !finalizado(o));
+    const contagem = { todos: ativos.length, finalizados: fin.length };
+    L.STATUS.forEach((s) => { contagem[s.id] = ativos.filter((o) => o.status === s.id).length; });
+    $("orcFiltro").innerHTML = [{ id: "todos", nome: "Todos" }].concat(L.STATUS, [{ id: "finalizados", nome: "Finalizados" }])
       .map((s) => `<button type="button" class="chip${O.filtro === s.id ? " on" : ""}" data-f="${s.id}" aria-pressed="${O.filtro === s.id}">${esc(s.nome)} · ${contagem[s.id] || 0}</button>`).join("");
-    const soma = (st) => O.lista.filter((o) => o.status === st).reduce((t, o) => t + L.contaDe(o).total, 0);
+    const soma = (st) => somaDe(ativos.filter((o) => o.status === st));
     N.renderTiles($("orcResumo"), [
-      { k: "Orçamentos", v: String(O.lista.length), s: contagem.rascunho + (contagem.rascunho === 1 ? " rascunho" : " rascunhos") },
+      { k: "Orçamentos", v: String(ativos.length), s: contagem.rascunho + (contagem.rascunho === 1 ? " rascunho" : " rascunhos") },
       { k: "Aguardando resposta", v: L.brl(soma("enviado")), s: contagem.enviado + (contagem.enviado === 1 ? " enviado" : " enviados") },
       { k: "Aprovados", v: L.brl(soma("aprovado")), s: contagem.aprovado + (contagem.aprovado === 1 ? " orçamento" : " orçamentos") },
+      { k: "Finalizados", v: L.brl(somaDe(fin)), s: fin.length + (fin.length === 1 ? " vendido e no Bling" : " vendidos e no Bling") },
     ]);
     const tokens = V.norm($("orcPesquisa").value).split(" ").filter(Boolean);
-    const lista = O.lista.filter((o) => (O.filtro === "todos" || o.status === O.filtro) && tokens.every((t) => palha(o).includes(t)));
+    const acha = (o) => tokens.every((t) => palha(o).includes(t));
+    const lista = O.filtro === "finalizados"
+      ? fin.filter(acha).sort((a, b) => String(b.venda_em || b.criado_em).localeCompare(String(a.venda_em || a.criado_em)))
+      : ativos.filter((o) => (O.filtro === "todos" || o.status === O.filtro) && acha(o));
     const el = $("orcLista");
     if (!O.carregado) { el.innerHTML = '<div class="empty-state">Carregando os orçamentos…</div>'; return; }
     if (!lista.length) {
-      el.innerHTML = `<div class="empty-state">${O.semTabela ? "Os orçamentos aparecem aqui depois do passo do banco (aviso no alto da aba)." : O.lista.length ? "Nenhum orçamento neste filtro." : "Nenhum orçamento ainda. Monte o primeiro no formulário acima."}</div>`;
+      const nosFinalizados = O.filtro !== "finalizados" && tokens.length ? fin.filter(acha).length : 0;
+      el.innerHTML = `<div class="empty-state">${O.semTabela ? "Os orçamentos aparecem aqui depois do passo do banco (aviso no alto da aba)."
+        : O.filtro === "finalizados" ? (tokens.length ? "Nenhum orçamento finalizado com essa pesquisa." : "Nenhum orçamento finalizado ainda. Quando a venda de um orçamento for para o Bling, ele vem para cá.")
+        : nosFinalizados ? `Nenhum orçamento neste filtro. ${nosFinalizados === 1 ? "Tem 1" : "Tem " + nosFinalizados} em <b>Finalizados</b>.`
+        : O.lista.length ? "Nenhum orçamento neste filtro." : "Nenhum orçamento ainda. Monte o primeiro no formulário acima."}</div>`;
       return;
     }
     el.innerHTML = lista.map((o) => {
       const c = L.contaDe(o);
       const n = (o.itens || []).length;
+      const venda = vendaDoOrcamento(o);
+      const linhaBling = vendaNoBling(venda)
+        ? `<div class="sale-sub"><span class="pill ok">No Bling</span> ${venda.bling_numero ? "pedido nº " + esc(String(venda.bling_numero)) : "marcado como lançado"}${o.venda_em ? " · vendido em " + esc(L.dataBR(o.venda_em)) : ""}</div>`
+        : "";
       return `<div class="sale-row orc-row" data-id="${esc(o.id)}">
         <div class="sale-main">
           <div><span class="sale-num">${esc(L.numeroTexto(o.numero))}</span><span class="sale-name">${esc(o.cliente_nome)}</span>${pill(o.status)}</div>
           <div class="sale-sub">${n} ${n === 1 ? "produto" : "produtos"}${n ? ": " + esc(resumoItens(o)) : ""}</div>
           <div class="sale-sub">Criado em ${esc(dataHora(o.criado_em))}${o.cliente_whatsapp ? " · " + esc(L.whatsBonito(o.cliente_whatsapp)) : ""}</div>
+          ${linhaBling}
         </div>
         <div class="sale-money">
           <div class="sale-value">${esc(L.brl(c.total))}</div>
@@ -756,7 +777,7 @@
       renderLista();
       carregarLoja().catch(() => {});
       carregar();
-    }
+    } else renderLista(); // uma venda pode ter ido para o Bling em outra aba: o orçamento passa para Finalizados
     atualizarCadastro(); // o cadastro pode ter mudado em outra aba
   }
   // não deixa sair da página com um orçamento sem salvar
