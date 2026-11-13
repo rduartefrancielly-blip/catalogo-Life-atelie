@@ -271,6 +271,12 @@
       <div class="search-big">
         <input type="search" id="orcPesquisa" placeholder="Pesquisar orçamento: cliente, produto ou nº" aria-label="Pesquisar orçamentos" autocomplete="off">
       </div>
+      <div class="filters">
+        <select id="orcMes" aria-label="Filtrar orçamentos por mês"><option value="all">Todos os meses</option></select>
+        <input type="date" id="orcDia" aria-label="Filtrar orçamentos por dia">
+        <button type="button" class="btn ghost" id="orcHoje">Hoje</button>
+        <button type="button" class="btn ghost" id="orcDiaLimpar" hidden>Limpar dia</button>
+      </div>
       <div class="stock-filter" id="orcFiltro" role="group" aria-label="Filtrar por situação"></div>
       <div class="form-msg" id="orcListaMsg" role="status"></div>
       <div id="orcLista"></div>
@@ -555,6 +561,6 @@
   <script src="js/vendas-telas.js?v=20261113"></script>
   <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
-  <script src="js/vendas-orcamentos.js?v=20261113b"></script>
+  <script src="js/vendas-orcamentos.js?v=20261113c"></script>
 </body>
 </html>
