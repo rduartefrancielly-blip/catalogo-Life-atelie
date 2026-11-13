@@ -428,9 +428,28 @@
   const vendaNoBling = (v) => !!v && (!!v.bling_id || v.bling_status === "exportada" || v.bling_status === "enviada");
   const finalizado = (o) => vendaNoBling(vendaDoOrcamento(o));
   const somaDe = (lista) => lista.reduce((t, o) => t + L.contaDe(o).total, 0);
+  // Data usada no filtro de mês/dia: finalizado conta pelo dia da venda; os outros, pelo dia em que o orçamento foi criado.
+  const dataDoFiltro = (o) => (finalizado(o) && o.venda_em) || o.criado_em;
+  function periodo() {
+    const mesSel = $("orcMes"), diaSel = $("orcDia").value;
+    const meses = [...new Set(O.lista.map((o) => N.mesChave(dataDoFiltro(o))))].sort().reverse();
+    const antes = mesSel.value || "all";
+    mesSel.innerHTML = '<option value="all">Todos os meses</option>' + meses.map((k) => `<option value="${k}">${esc(N.mesRotulo(k))}</option>`).join("");
+    mesSel.value = antes === "all" || meses.includes(antes) ? antes : "all";
+    mesSel.disabled = !!diaSel;
+    $("orcDiaLimpar").hidden = !diaSel;
+    const mes = mesSel.value;
+    return {
+      ativo: !!diaSel || mes !== "all",
+      texto: diaSel ? "em " + N.diaCurto(diaSel) : "em " + (mes === "all" ? "" : N.mesRotulo(mes).toLowerCase()),
+      tem: (o) => (diaSel ? N.dia(dataDoFiltro(o)) === diaSel : mes === "all" || N.mesChave(dataDoFiltro(o)) === mes),
+    };
+  }
   function renderLista() {
-    const fin = O.lista.filter(finalizado);
-    const ativos = O.lista.filter((o) => !finalizado(o));
+    const per = periodo();
+    const doPeriodo = O.lista.filter(per.tem);
+    const fin = doPeriodo.filter(finalizado);
+    const ativos = doPeriodo.filter((o) => !finalizado(o));
     const contagem = { todos: ativos.length, finalizados: fin.length };
     L.STATUS.forEach((s) => { contagem[s.id] = ativos.filter((o) => o.status === s.id).length; });
     $("orcFiltro").innerHTML = [{ id: "todos", nome: "Todos" }].concat(L.STATUS, [{ id: "finalizados", nome: "Finalizados" }])
@@ -452,8 +471,11 @@
     if (!lista.length) {
       const nosFinalizados = O.filtro !== "finalizados" && tokens.length ? fin.filter(acha).length : 0;
       el.innerHTML = `<div class="empty-state">${O.semTabela ? "Os orçamentos aparecem aqui depois do passo do banco (aviso no alto da aba)."
-        : O.filtro === "finalizados" ? (tokens.length ? "Nenhum orçamento finalizado com essa pesquisa." : "Nenhum orçamento finalizado ainda. Quando a venda de um orçamento for para o Bling, ele vem para cá.")
+        : O.filtro === "finalizados" ? (tokens.length ? "Nenhum orçamento finalizado com essa pesquisa" + (per.ativo ? " " + esc(per.texto) : "") + "."
+          : per.ativo ? "Nenhuma venda de orçamento foi para o Bling " + esc(per.texto) + "."
+          : "Nenhum orçamento finalizado ainda. Quando a venda de um orçamento for para o Bling, ele vem para cá.")
         : nosFinalizados ? `Nenhum orçamento neste filtro. ${nosFinalizados === 1 ? "Tem 1" : "Tem " + nosFinalizados} em <b>Finalizados</b>.`
+        : per.ativo && !doPeriodo.length ? "Nenhum orçamento " + esc(per.texto) + "."
         : O.lista.length ? "Nenhum orçamento neste filtro." : "Nenhum orçamento ainda. Monte o primeiro no formulário acima."}</div>`;
       return;
     }
@@ -491,6 +513,10 @@
   }
   $("orcFiltro").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { O.filtro = b.dataset.f; renderLista(); } });
   $("orcPesquisa").addEventListener("input", renderLista);
+  $("orcMes").addEventListener("change", renderLista);
+  $("orcDia").addEventListener("change", renderLista);
+  $("orcHoje").addEventListener("click", () => { $("orcDia").value = N.hoje(); renderLista(); });
+  $("orcDiaLimpar").addEventListener("click", () => { $("orcDia").value = ""; renderLista(); });
 
   $("orcLista").addEventListener("change", async (e) => {
     if (!e.target.classList.contains("orc-status")) return;
