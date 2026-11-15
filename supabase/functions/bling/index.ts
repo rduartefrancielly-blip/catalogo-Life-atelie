@@ -9,6 +9,7 @@
 //   GET  /vendedores   administradora → vendedoras cadastradas no Bling
 //   POST /vendedor     administradora → { id } vendedora que vai nos pedidos (0 = sem vendedora)
 //   POST /clientes-bling administradora → { pagina } uma página das clientes do Bling (com endereço)
+//   POST /clientes-enviar administradora → { ids: [...] } salva no Bling as clientes daqui que ainda não estão lá
 //   POST /desconectar  administradora → apaga a conexão
 //
 // Segredos (Supabase → Edge Functions → Secrets): BLING_CLIENT_ID e BLING_CLIENT_SECRET.
@@ -16,7 +17,7 @@
 // Em "Verify JWT" (Enforce JWT verification) deixe DESLIGADO: o Bling volta para /retorno sem login;
 // as outras rotas conferem o login aqui dentro.
 
-const VERSAO = "2026-11-12";
+const VERSAO = "2026-11-15";
 const BLING_API = "https://api.bling.com.br/Api/v3";
 const BLING_OAUTH = "https://www.bling.com.br/Api/v3";
 const VOLTA_PADRAO = "https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/vendas.html";
@@ -156,34 +157,63 @@ function escolherForma(formas: any[], pagamento: string): any {
   return achar((x) => Number(x.padrao) === 1) || achar((x) => [99, 90, 15].includes(Number(x.tipoPagamento))) || formas[0];
 }
 
-async function contatoDaVenda(v: any, c: any): Promise<number> {
-  if (c && c.bling_contato_id) return Number(c.bling_contato_id);
+// Acha a cliente no Bling (mesmo CPF/CNPJ ou mesmo nome) ou cadastra lá, e guarda o código do Bling no cadastro daqui.
+// como: "ja" (já estava ligada), "documento" / "nome" (já existia no Bling: só liga), "criada" (cadastrada agora)
+async function contatoDaCliente(nome: string, c: any): Promise<{ id: number; como: string }> {
+  if (c && c.bling_contato_id) return { id: Number(c.bling_contato_id), como: "ja" };
   const doc = digitos(c && c.documento);
-  let id: number | null = null;
+  let id: number | null = null, como = "";
   if (doc.length === 11 || doc.length === 14) {
     const d = await bling("GET", "contatos?limite=5&numeroDocumento=" + doc);
     id = (d.data && d.data[0] && d.data[0].id) || null;
+    if (id) como = "documento";
   }
   if (!id) {
-    const d = await bling("GET", "contatos?limite=100&pesquisa=" + encodeURIComponent(v.cliente_nome));
-    const igual = (d.data || []).find((x: any) => norm(x.nome) === norm(v.cliente_nome));
+    const d = await bling("GET", "contatos?limite=100&pesquisa=" + encodeURIComponent(nome));
+    // mesmo nome; se as duas têm CPF/CNPJ, tem que ser o mesmo (homônimas não se misturam)
+    const igual = (d.data || []).find((x: any) => norm(x.nome) === norm(nome) && x.situacao !== "E" &&
+      (!doc || !digitos(x.numeroDocumento) || digitos(x.numeroDocumento) === doc));
     id = (igual && igual.id) || null;
+    if (id) como = "nome";
   }
   if (!id) {
     const tel = digitos(c && c.telefone).replace(/^55(?=\d{10,11}$)/, "");
     const end: Record<string, string> = {};
     const pares: [string, unknown][] = [["endereco", c && c.rua], ["numero", c && c.numero], ["complemento", c && c.complemento], ["bairro", c && c.bairro], ["cep", digitos(c && c.cep)], ["municipio", c && c.cidade], ["uf", String((c && c.uf) || "").toUpperCase()]];
     pares.forEach(([k, val]) => { if (String(val || "").trim()) end[k] = String(val).trim(); });
-    const corpo: Record<string, unknown> = { nome: v.cliente_nome, tipo: doc.length === 14 ? "J" : "F", situacao: "A" };
+    const corpo: Record<string, unknown> = { nome, tipo: doc.length === 14 ? "J" : "F", situacao: "A" };
     if (doc) corpo.numeroDocumento = doc;
     if (tel.length === 11) corpo.celular = tel; else if (tel) corpo.telefone = tel;
     if (c && c.email) corpo.email = c.email;
     if (Object.keys(end).length) corpo.endereco = { geral: end };
     const d = await bling("POST", "contatos", corpo);
     id = d.data.id;
+    como = "criada";
   }
   if (c) { try { await db("clientes?id=eq." + c.id, { method: "PATCH", body: { bling_contato_id: id }, prefer: "return=minimal" }); } catch (_) { /* coluna ainda não criada: segue */ } }
-  return Number(id);
+  return { id: Number(id), como };
+}
+const contatoDaVenda = async (v: any, c: any): Promise<number> => (await contatoDaCliente(v.cliente_nome, c)).id;
+
+// Clientes daqui → Bling (aba Cadastro): uma de cada vez, sem duplicar quem já está lá
+async function enviarClientes(ids: string[]): Promise<any> {
+  const lista = ids.filter((x) => /^[0-9a-f-]{36}$/i.test(String(x))).slice(0, MAX_POR_VEZ);
+  if (!lista.length) return { resultados: [] };
+  const clientes = await db("clientes?select=*&id=in.(" + lista.join(",") + ")");
+  const resultados: any[] = [];
+  for (const id of lista) {
+    const c = clientes.find((x: any) => x.id === id);
+    if (!c) { resultados.push({ id, ok: false, erro: "Cliente não encontrada (pode ter sido apagada)." }); continue; }
+    try {
+      const r = await contatoDaCliente(c.nome, c);
+      resultados.push({ id, nome: c.nome, ok: true, como: r.como, bling_id: r.id });
+    } catch (e) {
+      const msg = String((e && (e as Error).message) || e);
+      if (e instanceof ErroBling && e.reconectar) return { resultados, reconectar: true, erro: msg };
+      resultados.push({ id, nome: c.nome, ok: false, erro: msg });
+    }
+  }
+  return { resultados };
 }
 
 async function produtosPorCodigo(codigos: string[]): Promise<Map<string, number>> {
@@ -396,6 +426,10 @@ export async function atender(req: Request): Promise<Response> {
     if (acao === "clientes-bling" && req.method === "POST") {
       const corpo: any = await req.json().catch(() => ({}));
       return resposta(await clientesDoBling(Math.max(1, Number(corpo.pagina) || 1)));
+    }
+    if (acao === "clientes-enviar" && req.method === "POST") {
+      const corpo: any = await req.json().catch(() => ({}));
+      return resposta(await enviarClientes(Array.isArray(corpo.ids) ? corpo.ids : []));
     }
     if (acao === "iniciar" && req.method === "POST") {
       if (faltamSegredos) return resposta({ erro: "Faltam os segredos BLING_CLIENT_ID e BLING_CLIENT_SECRET na função do Supabase." }, 400);
