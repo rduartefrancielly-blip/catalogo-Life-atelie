@@ -37,16 +37,18 @@ No catálogo, os produtos aparecem **separados por modelo, em ordem alfabética*
 
 ### Vendas direto para o Bling
 
-Na tela de vendas, aba **Bling e backup**, a administradora envia as vendas do período direto para o Bling. Cada venda vira um **pedido de venda** lá:
-- **Cliente:** procurada pelo CPF/CNPJ ou pelo nome; se não existir, é cadastrada com o endereço.
+Na tela de vendas, aba **Bling e backup**, as vendas aparecem numa lista no mesmo formato da aba Tags: cada uma com cliente, CPF, endereço, produtos com código, pagamento e avisos do que conferir (sem CPF, sem endereço, produto sem código, pagamento pendente, total diferente da soma dos produtos, motivo da última falha). Você marca as que vão e só elas são enviadas, impressas para conferir ou baixadas na planilha. Filtros: situação (ainda não foram / já estão no Bling / todas), período, busca e só pagas.
+
+A administradora envia as marcadas direto para o Bling. Cada venda vira um **pedido de venda** lá:
+- **Cliente:** procurada pelo CPF/CNPJ ou pelo nome (homônima com outro CPF não se mistura); se não existir, é cadastrada com o endereço.
 - **Produtos:** ligados pelo código (SKU do Bling ou código do site).
 - **Forma de pagamento:** Pix; cartão parcelado mês a mês; "aguardando" vai na forma padrão.
 - **Vendedora:** escolhida uma vez na aba, pelo **código do vendedor no Bling** (sugere a Francielly Duarte). Depois de criar cada pedido, o sistema confere no Bling se a vendedora ficou gravada e avisa se não ficou. Enquanto não escolher, o envio fica travado.
 
 Detalhes:
 - A venda guarda o número do pedido do Bling e nunca vira dois pedidos, nem se for enviada de novo (referência `LIFE-nº da venda`).
-- Se uma venda não for, o motivo aparece na aba. É só corrigir e enviar de novo.
-- A planilha antiga continua disponível em "Baixar planilha para importar no Bling".
+- Se uma venda não for, o motivo aparece no cartão dela. É só corrigir e enviar de novo.
+- "Baixar planilha" gera a planilha só das marcadas; "Marcar como lançadas" serve para as que você lançou no Bling por fora.
 
 **Para ligar (uma vez só):** o passo a passo está na própria aba, com botões para copiar o SQL, o código e o link. Em resumo:
 1. Rode [`supabase/bling.sql`](supabase/bling.sql). Rode de novo sempre que o arquivo mudar.
@@ -66,6 +68,15 @@ Aba **Cadastro → Importar clientes do Bling** (só a administradora). O sistem
 - **Ignoradas:** fornecedores, transportadoras, vendedores e excluídas.
 
 Pode importar de novo quando quiser: o que já entrou não duplica.
+
+### Salvar as clientes no Bling
+
+Aba **Cadastro → Salvar as clientes no Bling** (só a administradora). Manda para o Bling as clientes daqui que ainda não estão lá (sem o código do Bling), com CPF/CNPJ, telefone, e-mail e endereço:
+- Já existe no Bling com o mesmo CPF/CNPJ, ou com o mesmo nome (sem CPF diferente): só liga os dois cadastros, não duplica.
+- Não existe: cadastra no Bling.
+- Antes de enviar, a tela mostra quem vai e quem tem dado com formato errado (o Bling pode recusar). O motivo de cada uma que não foi aparece no resultado.
+
+Na lista de clientes, quem já está no Bling ganha o selo **No Bling**. Precisa da função `bling` na versão 2026-11-15 ou mais nova.
 
 ### Cadastro de cliente: validação e duplicidade
 
