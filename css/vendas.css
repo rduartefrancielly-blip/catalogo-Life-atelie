@@ -645,3 +645,12 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 .imp-grupo .warn{color:var(--danger);}
 .imp-grupo .mini{color:var(--ink-soft);font-size:0.8rem;}
 #dlgCliente [aria-invalid="true"]{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb, var(--danger) 25%, transparent);}
+
+/* Bling e backup: lista de vendas para conferir (mesmo formato das Tags) */
+.bl-card{align-items:flex-start;}
+.bl-card input[type=checkbox]{margin-top:2px;}
+.bl-card .tc-main .nome .pill{margin-left:6px;}
+.bl-card .tc-main .sub{line-height:1.45;}
+.bl-card .tc-main .sub.bl-aviso{color:var(--danger);}
+.bl-card .bl-valor{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto;}
+#blLista{margin-top:4px;}
