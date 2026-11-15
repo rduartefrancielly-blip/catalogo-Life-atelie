@@ -257,7 +257,7 @@
     if (semIniciais.length) linhas.push(["alert", semIniciais.length + (semIniciais.length === 1 ? " tag sem iniciais" : " tags sem iniciais"), "Complete as iniciais na aba Tags para poder mandar para a fábrica.", "tags", "Abrir"]);
     if (tagsFazer.length) linhas.push(["warn", tagsFazer.length + (tagsFazer.length === 1 ? " tag para fazer" : " tags para fazer"), "Escolha as tags do dia e envie o pedido para a fábrica.", "tags", "Abrir"]);
     if (aguardando.length) linhas.push(["warn", aguardando.length + (aguardando.length === 1 ? " venda aguardando pagamento" : " vendas aguardando pagamento"), brl(receber) + " a receber. Use \"Marcar como pago\" na aba Vendas.", "sales", "Abrir"]);
-    if (naoBling.length) linhas.push(["", naoBling.length + (naoBling.length === 1 ? " venda ainda não lançada no Bling" : " vendas ainda não lançadas no Bling"), "Baixe a planilha na aba Bling e backup.", "bling", "Abrir"]);
+    if (naoBling.length) linhas.push(["", naoBling.length + (naoBling.length === 1 ? " venda ainda não lançada no Bling" : " vendas ainda não lançadas no Bling"), "Confira e envie na aba Bling e backup.", "bling", "Abrir"]);
     if (esgotadas.length || baixo.length) linhas.push(["", esgotadas.length + (esgotadas.length === 1 ? " cor esgotada" : " cores esgotadas") + " · " + baixo.length + " com estoque baixo", "Veja o que repor na aba Estoque.", "stock", "Abrir"]);
     $("homeAlerts").innerHTML = linhas.length
       ? `<div class="todo-list">${linhas.map(([cls, t, s, go, b]) => `<div class="todo-row"><span class="todo-dot ${cls}"></span><div class="todo-main"><div class="todo-title">${esc(t)}</div><div class="todo-sub">${esc(s)}</div></div><button type="button" class="btn ghost small" data-go="${go}">${b}</button></div>`).join("")}</div>`

@@ -218,7 +218,7 @@
       const contato = [c.telefone, c.documento, c.email].filter(Boolean).join(" · "), end = V.enderecoLinha(c), n = N.vendasDa(c).length;
       const card = document.createElement("div");
       card.className = "client-card";
-      card.innerHTML = '<div class="cc-main"><div><span class="cc-name">' + esc(c.nome) + "</span></div>" + (contato ? '<div class="cc-sub">' + esc(contato) + "</div>" : '<div class="cc-sub">Sem dados de contato</div>') + (end ? '<div class="cc-sub">' + esc(end) + "</div>" : "") +
+      card.innerHTML = '<div class="cc-main"><div><span class="cc-name">' + esc(c.nome) + "</span>" + (N.ehAdmin() && c.bling_contato_id ? pill("No Bling", "ok") : "") + "</div>" + (contato ? '<div class="cc-sub">' + esc(contato) + "</div>" : '<div class="cc-sub">Sem dados de contato</div>') + (end ? '<div class="cc-sub">' + esc(end) + "</div>" : "") +
         (c.observacoes ? '<div class="cc-sub">' + esc(c.observacoes) + "</div>" : "") + '<div class="cc-sub">' + n + (n === 1 ? " compra" : " compras") + '</div></div><div class="cc-actions"><button type="button" class="btn ghost" data-act="edit">Editar</button><button type="button" class="btn" data-act="new">Nova venda</button></div>';
       card.querySelector('[data-act="edit"]').addEventListener("click", () => abrirCliente(c));
       card.querySelector('[data-act="new"]').addEventListener("click", () => N.novaVendaPara(c.nome));
@@ -232,6 +232,7 @@
     renderPrevia();
     $("formAjustes").hidden = !N.ehAdmin();
     $("cardImportarBling").hidden = !N.ehAdmin();
+    desenharEnvioClientes();
     if (N.ehAdmin() && !$("formAjustes").contains(document.activeElement)) {
       $("ajTag").value = N.fmtEntrada(E.ajustes.tag_valor_minimo); $("ajComissao").value = String(E.ajustes.comissao_padrao).replace(".", ","); $("ajBaixo").value = E.ajustes.estoque_baixo; $("ajFabrica").value = E.ajustes.telefone_fabrica;
     }
@@ -376,27 +377,98 @@
   });
 
   // =====================================================================
-  // BLING E BACKUP
+  // BLING E BACKUP · lista de vendas no mesmo formato da aba Tags: confere, marca e só então envia
   // =====================================================================
+  const FB = { sel: new Set() };
+  const vendaNoBling = (v) => !!v.bling_id || v.bling_status !== "nao";
+  const clienteDaVenda = (v) => E.clientes.find((c) => c.id === v.cliente_id) || null;
+  const somaVendas = (l) => l.reduce((t, v) => t + (Number(v.valor_total) || 0), 0);
+  const itemTexto = (i) => i.quantidade + "× " + i.descricao + (i.codigo ? " (cód. " + i.codigo + ")" : "");
+  const palhaBling = (v) => V.norm([v.cliente_nome, "#" + N.numeroDe(v), String(N.numeroDe(v)), v.bling_numero || "", (v.itens || []).map((i) => i.descricao + " " + (i.codigo || "")).join(" ")].join(" "));
   function vendasDoBling() {
-    const de = $("blFrom").value, ate = $("blTo").value;
+    const de = $("blFrom").value, ate = $("blTo").value, sit = $("blSituacao").value;
+    const tokens = V.norm($("blBusca").value).split(" ").filter(Boolean);
     return E.vendas.filter((v) => {
       if (v.status !== "confirmada") return false;
       const d = N.dia(v.criado_em);
       if (de && d < de) return false;
       if (ate && d > ate) return false;
-      if ($("blOnlyNew").checked && v.bling_status !== "nao") return false;
+      if (sit === "nao" && vendaNoBling(v)) return false;
+      if (sit === "sim" && !vendaNoBling(v)) return false;
       if ($("blOnlyPaid").checked && v.pagamento === "aguardando") return false;
+      if (tokens.length) { const h = palhaBling(v); if (!tokens.every((t) => h.includes(t))) return false; }
       return true;
     }).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
   }
+  const selecionadasBling = () => E.vendas.filter((v) => FB.sel.has(v.id));
+  // o que conferir antes de mandar: dados que faltam ou que o Bling pode recusar
+  function avisosDaVenda(v, c) {
+    const av = [];
+    if (!vendaNoBling(v) && v.bling_erro) av.push("Não foi na última tentativa: " + v.bling_erro);
+    if (!c) av.push("Sem cadastro de cliente ligado: vai só com o nome");
+    else {
+      const ruins = LC().validarCadastro(c).map((x) => x.campo).filter((k) => NOMES_ERRO[k]);
+      if (ruins.length) av.push(ruins.map((k) => NOMES_ERRO[k]).join(", ") + " com formato errado no cadastro");
+      if (!String(c.documento || "").trim()) av.push("Cliente sem CPF/CNPJ");
+      if (!String(c.rua || "").trim() || !String(c.cidade || "").trim()) av.push("Cliente sem endereço completo");
+    }
+    const semCod = (v.itens || []).filter((i) => !String(i.codigo || "").trim()).length;
+    if (semCod) av.push(semCod + (semCod === 1 ? " produto sem código: vai" : " produtos sem código: vão") + " sem ligar ao produto do Bling");
+    if (v.pagamento === "aguardando") av.push("Pagamento ainda não recebido");
+    // o pedido no Bling soma os produtos: se a venda teve desconto/acréscimo, o total lá fica diferente
+    const somaItens = Math.round((v.itens || []).reduce((t, i) => t + (Number(i.preco_unit) || 0) * (Number(i.quantidade) || 1), 0) * 100) / 100;
+    if (!v.bling_id && (v.itens || []).length && Math.abs(somaItens - Number(v.valor_total)) >= 0.01)
+      av.push("No Bling o pedido soma os produtos (" + brl(somaItens) + "), diferente do total desta venda (" + brl(v.valor_total) + ")");
+    return av;
+  }
+  function cartaoVenda(v) {
+    const c = clienteDaVenda(v), av = avisosDaVenda(v, c);
+    const situacao = v.bling_id ? pill("No Bling" + (v.bling_numero ? " · pedido nº " + v.bling_numero : ""), "ok") : vendaNoBling(v) ? pill("Lançada no Bling", "ok") : "";
+    const contato = c ? [c.documento ? "CPF/CNPJ " + c.documento : "", c.telefone, c.email].filter(Boolean).join(" · ") : "";
+    const end = c ? V.enderecoLinha(c) : "";
+    const clienteBling = vendaNoBling(v) || !c ? "" : c.bling_contato_id ? "cliente já está no Bling" : "cliente vai ser cadastrada no Bling";
+    return `<div class="tag-card bl-card" data-id="${esc(v.id)}"><input type="checkbox" class="b-sel" aria-label="Selecionar venda nº ${esc(String(N.numeroDe(v)))} de ${esc(v.cliente_nome)}"${FB.sel.has(v.id) ? " checked" : ""}>
+      <div class="tc-main">
+        <div class="nome">#${esc(String(N.numeroDe(v)))} · ${esc(v.cliente_nome)}${situacao}</div>
+        <div class="sub">${esc(N.dataCurta(v.criado_em))} · ${esc(N.pagTexto(v) || "sem forma de pagamento")}${v.comissao_pct ? " · comissão " + esc(String(v.comissao_pct)) + "%" : ""}</div>
+        <div class="sub">${(v.itens || []).map((i) => esc(itemTexto(i)) + " · " + esc(brl((Number(i.preco_unit) || 0) * (Number(i.quantidade) || 1)))).join("<br>") || "Sem produtos"}</div>
+        ${contato ? `<div class="sub">${esc(contato)}</div>` : ""}${end ? `<div class="sub">${esc(end)}</div>` : ""}
+        ${v.observacao ? `<div class="sub">Obs.: ${esc(v.observacao)}</div>` : ""}${clienteBling ? `<div class="sub">${esc(clienteBling)}</div>` : ""}
+        ${av.map((a) => `<div class="sub bl-aviso">⚠ ${esc(a)}</div>`).join("")}
+      </div>
+      <div class="bl-valor">${esc(brl(v.valor_total))}</div></div>`;
+  }
   function renderBling() {
-    const l = vendasDoBling(), soma = l.reduce((t, v) => t + v.valor_total, 0);
-    $("blPreview").textContent = l.length + (l.length === 1 ? " venda" : " vendas") + " no período · " + brl(soma);
+    const lista = vendasDoBling();
+    [...FB.sel].forEach((id) => { if (!lista.some((v) => v.id === id)) FB.sel.delete(id); });
+    const sel = selecionadasBling();
+    $("blSelAll").textContent = FB.sel.size && FB.sel.size === lista.length ? "Limpar seleção" : "Selecionar todas";
+    $("blSelAll").disabled = !lista.length;
+    $("blSelCount").textContent = sel.length
+      ? sel.length + (sel.length === 1 ? " selecionada" : " selecionadas") + " · " + brl(somaVendas(sel))
+      : lista.length + (lista.length === 1 ? " venda" : " vendas") + " · " + brl(somaVendas(lista));
+    ["blPrint", "blExport", "blMarcar"].forEach((id) => { $(id).disabled = !sel.length; });
+    const marcar = sel.filter((v) => !vendaNoBling(v)).length;
+    $("blMarcar").hidden = $("blSituacao").value === "sim";
+    $("blMarcar").textContent = marcar > 1 ? "Marcar " + marcar + " como lançadas" : "Marcar como lançada";
+    $("blLista").innerHTML = lista.length ? lista.map(cartaoVenda).join("")
+      : '<div class="empty-state">' + ($("blSituacao").value === "nao" ? "Nenhuma venda esperando para ir ao Bling com esses filtros ✓" : "Nenhuma venda com esses filtros.") + "</div>";
     $("cardBackup").hidden = !N.ehAdmin();
     $("blApi").hidden = !N.ehAdmin();
-    if (!N.ehAdmin()) { $("blPlanilha").open = true; return; }
+    botaoEnviarBling();
+    if (!N.ehAdmin()) return;
     if (!BL.status && !BL.carregando) atualizarStatusBling(); else desenharBlingApi();
+  }
+  // botão "Enviar para o Bling": só a administradora, com o Bling conectado e a vendedora escolhida; só as marcadas
+  function botaoEnviarBling() {
+    const b = $("blEnviar"), s = BL.status || {};
+    b.hidden = !N.ehAdmin();
+    if (b.hidden) return;
+    const n = selecionadasBling().filter((v) => !v.bling_id).length;
+    const pronto = !!(s.conectado && !s.erro && !s.semFuncao && !funcaoVelha(s));
+    b.disabled = !n || BL.enviando || !pronto || !s.vendedor;
+    b.textContent = BL.enviando ? "Enviando…" : !pronto ? "Enviar para o Bling (ligue o Bling abaixo)" : !s.vendedor ? "Escolha a vendedora abaixo para enviar"
+      : n ? "Enviar " + n + (n === 1 ? " venda" : " vendas") + " para o Bling" : "Enviar para o Bling";
   }
 
   // ---------- envio direto pela API do Bling (função "bling" do Supabase) ----------
@@ -427,33 +499,24 @@
     try { BL.status = await chamarBling("status"); } finally { BL.carregando = false; }
     desenharBlingApi();
   }
-  const pendentesBling = () => vendasDoBling().filter((v) => !v.bling_id);
   const FUNCAO_VERSAO = "2026-11-12"; // versão da função "bling" que esta tela espera
-  const funcaoVelha = (s) => !!s && !s.semFuncao && !s.erro && s.versao !== FUNCAO_VERSAO;
+  const funcaoVelha = (s) => !!s && !s.semFuncao && !s.erro && String(s.versao || "") < FUNCAO_VERSAO; // versão mais nova também serve
   function desenharBlingApi() {
-    const s = BL.status || {}, st = $("blApiStatus"), env = $("blEnviar"), con = $("blConectar");
-    const n = pendentesBling().length;
-    env.hidden = true; con.hidden = true; $("blVendedora").hidden = true;
+    const s = BL.status || {}, st = $("blApiStatus"), con = $("blConectar");
+    con.hidden = true; $("blVendedora").hidden = true;
     if (s.semFuncao) st.innerHTML = "A integração ainda não foi instalada no Supabase. Siga o <b>passo a passo</b> abaixo (uma vez só).";
     else if (funcaoVelha(s)) st.innerHTML = "A função do Bling no Supabase está <b>desatualizada</b>. Atualize no passo 3 abaixo: <b>Copiar o código</b> → no Supabase, abra a função <b>bling</b>, apague o código antigo, cole o novo e toque em <b>Deploy</b>.";
     else if (s.faltam_segredos) st.innerHTML = "A função está instalada, mas faltam os segredos do Bling (passo 4 abaixo).";
     else if (s.erro) st.textContent = s.erro;
     else if (!s.conectado) { st.textContent = "Ainda não conectado ao Bling."; con.hidden = false; con.textContent = "Conectar ao Bling"; con.className = "btn"; }
     else {
-      st.textContent = "Conectado ao Bling ✓" + (s.conectado_em ? " desde " + N.dataCurta(s.conectado_em) : "") + ". As vendas viram pedidos de venda lá, com a cliente, os produtos (pelo código) e a forma de pagamento.";
-      const semVendedora = !s.vendedor; // ainda não escolheu (nem "sem vendedora")
-      env.hidden = false; env.disabled = !n || BL.enviando || semVendedora;
-      env.textContent = semVendedora ? "Escolha a vendedora abaixo antes de enviar" : n ? "Enviar " + n + (n === 1 ? " venda" : " vendas") + " para o Bling" : "Nenhuma venda para enviar neste período";
+      st.textContent = "Conectado ao Bling ✓" + (s.conectado_em ? " desde " + N.dataCurta(s.conectado_em) : "") + ". As vendas marcadas na lista acima viram pedidos de venda lá, com a cliente, os produtos (pelo código) e a forma de pagamento.";
       con.hidden = false; con.textContent = "Conectar de novo"; con.className = "btn ghost";
       $("blVendedora").hidden = false;
       if (!BL.vendedores && !BL.carregandoVend) carregarVendedores(); else desenharVendedora();
     }
     $("blInstalar").open = !!(s.semFuncao || s.faltam_segredos || s.erro || !s.conectado || funcaoVelha(s));
-    // vendas que não foram na última tentativa: mostra o motivo (se a lista do último envio não estiver na tela)
-    if (!BL.enviando && !$("blResultados").dataset.agora) {
-      const comErro = pendentesBling().filter((v) => v.bling_erro);
-      $("blResultados").innerHTML = comErro.map((v) => '<li class="warn">Venda nº ' + esc(String(v.numero)) + " não foi na última tentativa: " + esc(v.bling_erro) + "</li>").join("");
-    }
+    botaoEnviarBling(); // o motivo de cada venda que não foi aparece no cartão dela, na lista
     if (BL.aviso) { N.setMsg($("blEnviarMsg"), BL.aviso.texto, BL.aviso.tipo); BL.aviso = null; }
   }
   // ---------- vendedora dos pedidos (pelo código do Bling, não só pelo nome) ----------
@@ -509,11 +572,13 @@
     N.setMsg($("blEnviarMsg"), d.semFuncao ? "A função do Bling ainda não foi instalada (passo 3)." : d.erro || "Não consegui começar a conexão.", "warn");
   });
   $("blEnviar").addEventListener("click", async () => {
-    const lista = pendentesBling();
+    const lista = selecionadasBling().filter((v) => !v.bling_id).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
     if (!lista.length || BL.enviando) return;
-    if (!window.confirm("Enviar " + lista.length + (lista.length === 1 ? " venda" : " vendas") + " para o Bling? Cada uma vira um pedido de venda lá (uma venda nunca vira dois pedidos).")) return;
-    BL.enviando = true; desenharBlingApi();
-    const msg = $("blEnviarMsg"), res = [];
+    const comAviso = lista.filter((v) => avisosDaVenda(v, clienteDaVenda(v)).length).length;
+    if (!window.confirm("Enviar " + lista.length + (lista.length === 1 ? " venda" : " vendas") + " (" + brl(somaVendas(lista)) + ") para o Bling? Cada uma vira um pedido de venda lá (uma venda nunca vira dois pedidos)." +
+      (comAviso ? "\n\n" + comAviso + (comAviso === 1 ? " delas tem aviso" : " delas têm aviso") + " (⚠ na lista). Confira antes, se ainda não conferiu." : ""))) return;
+    BL.enviando = true; botaoEnviarBling();
+    const msg = $("blMsg"), res = [];
     let parou = "", vendedoraEnvio = "";
     for (let i = 0; i < lista.length; i += 10) {
       N.setMsg(msg, "Enviando " + Math.min(i + 10, lista.length) + " de " + lista.length + "… (deixe esta tela aberta)");
@@ -524,15 +589,16 @@
       if (d.erro || d.semFuncao) { parou = d.semFuncao ? "A função do Bling não respondeu." : d.erro; break; }
     }
     BL.enviando = false;
-    await N.recarregar(["vendas"]); N.renderTudo();
+    res.filter((x) => x.ok).forEach((x) => FB.sel.delete(x.id));
+    await N.recarregar(["vendas", "clientes"]); N.renderTudo();
     const okN = res.filter((x) => x.ok).length, erros = res.filter((x) => !x.ok);
-    $("blResultados").dataset.agora = "1";
     $("blResultados").innerHTML = res.map((x) => '<li class="' + (x.ok ? "ok" : "warn") + '">' + (x.ok
       ? "Venda nº " + esc(String(x.numero)) + " → pedido " + (x.bling_numero ? "nº " + esc(x.bling_numero) + " " : "") + "no Bling ✓" + (x.ja ? " (já estava lá)" : "") +
         (x.vendedor_ok === true && vendedoraEnvio ? " · vendedora " + esc(vendedoraEnvio) : x.vendedor_ok === false ? ' <span class="warn">· o Bling não gravou a vendedora: confira o pedido lá</span>' : "")
       : "Venda nº " + esc(String(x.numero || "?")) + ": " + esc(x.erro || "não foi")) + "</li>").join("");
     N.setMsg(msg, (okN ? okN + (okN === 1 ? " venda enviada" : " vendas enviadas") + " para o Bling." : "") + (erros.length ? " " + erros.length + (erros.length === 1 ? " não foi" : " não foram") + ": veja o motivo abaixo, corrija e envie de novo." : "") + (parou ? " " + parou : ""), erros.length || parou ? "warn" : "ok");
     desenharBlingApi();
+    botaoEnviarBling();
   });
   // instalação: copiar o SQL, o código da função e o link de redirecionamento
   $("blInstalar").addEventListener("click", async (e) => {
@@ -641,6 +707,59 @@
       (falhas.length ? " " + falhas.length + " não entraram (motivo abaixo)." : "") + (semColuna ? " Rode o SQL do Bling de novo (aba Bling e backup, passo 1) para guardar o vínculo com o Bling." : ""), falhas.length ? "warn" : "ok");
   });
 
+  // ---------- salvar no Bling as clientes daqui (aba Cadastro) ----------
+  const ENV = { enviando: false };
+  const faltamNoBling = () => E.clientes.filter((c) => !c.bling_contato_id);
+  const NOMES_ERRO = { documento: "CPF/CNPJ", email: "e-mail", cep: "CEP", uf: "UF", telefone: "telefone" };
+  function desenharEnvioClientes() {
+    const card = $("cardEnviarBling");
+    card.hidden = !N.ehAdmin();
+    if (card.hidden) return;
+    const lista = faltamNoBling(), n = lista.length, b = $("envCliBtn");
+    const comErro = lista.map((c) => ({ c, campos: LC().validarCadastro(c).map((x) => x.campo).filter((k) => NOMES_ERRO[k]) })).filter((x) => x.campos.length);
+    const item = (c) => "<li>" + esc(c.nome) + (c.documento ? " · " + esc(c.documento) : "") + (c.cidade ? " · " + esc(c.cidade) : "") + "</li>";
+    $("envCliResumo").innerHTML = !n ? '<p class="mini-note">Todas as clientes daqui já estão no Bling ✓</p>'
+      : '<p class="mini-note"><b>' + n + "</b> " + (n === 1 ? "cliente ainda não está" : "clientes ainda não estão") + " no Bling.</p>" +
+        '<details class="imp-grupo"><summary>Conferir quem vai (' + n + ")</summary><ul>" + lista.map(item).join("") + "</ul></details>" +
+        (comErro.length ? '<details class="imp-grupo" open><summary>Corrigir antes de enviar (' + comErro.length + ")</summary><ul>" +
+          comErro.map((x) => "<li>" + esc(x.c.nome) + ': <span class="warn">' + esc(x.campos.map((k) => NOMES_ERRO[k]).join(", ")) + " com formato errado</span></li>").join("") +
+          '</ul><p class="mini">O Bling pode recusar esses cadastros. Corrija em Editar, na lista acima, ou envie assim e veja o motivo no resultado.</p></details>' : "");
+    b.hidden = !n && !ENV.enviando;
+    b.disabled = ENV.enviando;
+    b.textContent = ENV.enviando ? "Enviando…" : "Enviar " + n + (n === 1 ? " cliente" : " clientes") + " para o Bling";
+  }
+  $("envCliBtn").addEventListener("click", async () => {
+    const lista = faltamNoBling();
+    if (!lista.length || ENV.enviando) return;
+    if (!window.confirm("Salvar " + lista.length + (lista.length === 1 ? " cliente" : " clientes") + " no Bling? Quem já existir lá (mesmo CPF/CNPJ ou mesmo nome) só fica ligada, sem duplicar.")) return;
+    ENV.enviando = true; desenharEnvioClientes();
+    $("envCliResultados").innerHTML = "";
+    const msg = $("envCliMsg"), res = [];
+    let parou = "";
+    for (let i = 0; i < lista.length; i += 10) {
+      N.setMsg(msg, "Enviando " + Math.min(i + 10, lista.length) + " de " + lista.length + "… (deixe esta tela aberta)");
+      const d = await chamarBling("clientes-enviar", { ids: lista.slice(i, i + 10).map((c) => c.id) });
+      (d.resultados || []).forEach((x) => res.push(x));
+      if (d.semFuncao) { parou = "A integração com o Bling ainda não foi instalada (aba Bling e backup)."; break; }
+      if (d.reconectar) { parou = "O Bling pediu para conectar de novo: aba Bling e backup → Conectar ao Bling."; break; }
+      if (d.erro) {
+        parou = /desconhecido/i.test(d.erro) ? "A função do Bling no Supabase está desatualizada: atualize no passo 3 da aba Bling e backup e tente de novo."
+          : /escopo|scope|permiss|forbidden|insufficient|403/i.test(d.erro) ? "O aplicativo do Bling não tem a permissão Gerenciar Contatos. Adicione, salve e toque em Conectar de novo (aba Bling e backup)." : d.erro;
+        break;
+      }
+    }
+    ENV.enviando = false;
+    await N.recarregar(["clientes"]); N.renderTudo();
+    const COMO = { criada: "cadastrada no Bling ✓", documento: "já estava no Bling (mesmo CPF/CNPJ): cadastros ligados ✓", nome: "já estava no Bling (mesmo nome): cadastros ligados ✓", ja: "já estava ligada ao Bling ✓" };
+    $("envCliResultados").innerHTML = res.map((x) => '<li class="' + (x.ok ? "ok" : "warn") + '">' + esc(x.nome || "Cliente") + ": " + esc(x.ok ? COMO[x.como] || "no Bling ✓" : "não foi. " + (x.erro || "")) + "</li>").join("");
+    const criadas = res.filter((x) => x.ok && x.como === "criada").length, ligadas = res.filter((x) => x.ok && x.como !== "criada").length, erros = res.filter((x) => !x.ok).length;
+    const partes = [];
+    if (criadas) partes.push(criadas + (criadas === 1 ? " cadastrada" : " cadastradas") + " no Bling");
+    if (ligadas) partes.push(ligadas + (ligadas === 1 ? " já estava lá e foi ligada" : " já estavam lá e foram ligadas"));
+    if (erros) partes.push(erros + (erros === 1 ? " não foi: veja o motivo abaixo, corrija e envie de novo" : " não foram: veja o motivo abaixo, corrija e envie de novo"));
+    N.setMsg(msg, (partes.length ? partes.join(" · ") + "." : "") + (parou ? " " + parou : ""), erros || parou ? "warn" : "ok");
+  });
+
   // de volta do Bling depois de autorizar: vendas.html?bling=ok
   (function () {
     const p = new URLSearchParams(location.search), v = p.get("bling");
@@ -652,18 +771,53 @@
     history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + location.hash);
     try { sessionStorage.setItem("life-aba", "bling"); } catch (_) { /* sem armazenamento */ }
   })();
-  ["blFrom", "blTo", "blOnlyNew", "blOnlyPaid"].forEach((id) => $(id).addEventListener("change", renderBling));
+  ["blFrom", "blTo", "blOnlyPaid"].forEach((id) => $(id).addEventListener("change", renderBling));
+  $("blSituacao").addEventListener("change", () => { FB.sel.clear(); $("blResultados").innerHTML = ""; renderBling(); });
+  $("blBusca").addEventListener("input", renderBling);
+  $("blSelAll").addEventListener("click", () => { const l = vendasDoBling(); if (FB.sel.size && FB.sel.size === l.length) FB.sel.clear(); else l.forEach((v) => FB.sel.add(v.id)); renderBling(); });
+  $("blLista").addEventListener("change", (e) => {
+    if (!e.target.classList.contains("b-sel")) return;
+    const id = e.target.closest("[data-id]").dataset.id;
+    if (e.target.checked) FB.sel.add(id); else FB.sel.delete(id);
+    renderBling();
+  });
+  async function marcarLancadas(lista) {
+    const ids = lista.filter((v) => !vendaNoBling(v)).map((v) => v.id);
+    if (!ids.length) return 0;
+    const { error } = await sb.from("vendas").update({ bling_status: "exportada", bling_em: new Date().toISOString() }).in("id", ids);
+    if (error) throw error;
+    ids.forEach((id) => FB.sel.delete(id));
+    await N.recarregar(["vendas"]); N.renderTudo();
+    return ids.length;
+  }
+  $("blPrint").addEventListener("click", () => {
+    const l = selecionadasBling().sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
+    if (!l.length) return;
+    N.imprimir(`<h1>Vendas para o Bling · Life Ateliê</h1><p>${esc(N.dataCurta(new Date().toISOString()))} · ${l.length} ${l.length === 1 ? "venda" : "vendas"} · total ${esc(brl(somaVendas(l)))}</p>
+      <table class="tp-table"><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Produtos</th><th>Pagamento</th><th>Total</th><th>Conferir</th></tr></thead><tbody>${l.map((v) => {
+        const c = clienteDaVenda(v);
+        return `<tr><td>#${esc(String(N.numeroDe(v)))}</td><td>${esc(N.dataCurta(v.criado_em))}</td><td>${esc(v.cliente_nome)}${c && c.documento ? "<br>" + esc(c.documento) : ""}${c && V.enderecoLinha(c) ? "<br>" + esc(V.enderecoLinha(c)) : ""}</td><td>${(v.itens || []).map((i) => esc(itemTexto(i))).join("<br>")}</td><td>${esc(N.pagTexto(v))}</td><td>${esc(brl(v.valor_total))}</td><td>${avisosDaVenda(v, c).map((a) => esc(a)).join("<br>")}</td></tr>`;
+      }).join("")}</tbody></table>`);
+  });
   $("blExport").addEventListener("click", async () => {
-    const lista = vendasDoBling(), msg = $("blMsg");
-    if (!lista.length) { N.setMsg(msg, "Nenhuma venda neste período com esses filtros.", "warn"); return; }
-    N.baixarArquivo(V.paraCsv(V.csvVendas(lista, E.clientes)), "vendas-bling-" + ($("blFrom").value || "inicio") + "_a_" + ($("blTo").value || N.hoje()) + ".csv", "text/csv;charset=utf-8");
+    const lista = selecionadasBling().sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em)), msg = $("blMsg");
+    if (!lista.length) { N.setMsg(msg, "Marque as vendas que vão na planilha.", "warn"); return; }
+    N.baixarArquivo(V.paraCsv(V.csvVendas(lista, E.clientes)), "vendas-bling-" + N.hoje() + ".csv", "text/csv;charset=utf-8");
     N.setMsg(msg, "Planilha com " + lista.length + (lista.length === 1 ? " venda baixada." : " vendas baixada."), "ok");
     if ($("blMark").checked) {
-      const { error } = await sb.from("vendas").update({ bling_status: "exportada", bling_em: new Date().toISOString() }).in("id", lista.map((v) => v.id));
-      if (error) { N.setMsg(msg, "Planilha baixada, mas não consegui marcar como lançadas: " + N.traduzirErro(error), "warn"); return; }
-      await N.recarregar(["vendas"]); N.renderTudo();
-      N.setMsg(msg, "Planilha salva. " + lista.length + (lista.length === 1 ? " venda marcada" : " vendas marcadas") + " como lançadas no Bling.", "ok");
+      try {
+        const n = await marcarLancadas(lista);
+        N.setMsg(msg, "Planilha salva." + (n ? " " + n + (n === 1 ? " venda marcada como lançada" : " vendas marcadas como lançadas") + " no Bling." : ""), "ok");
+      } catch (error) { N.setMsg(msg, "Planilha baixada, mas não consegui marcar como lançadas: " + N.traduzirErro(error), "warn"); }
     }
+  });
+  $("blMarcar").addEventListener("click", async () => {
+    const lista = selecionadasBling(), msg = $("blMsg");
+    const n = lista.filter((v) => !vendaNoBling(v)).length;
+    if (!n) { N.setMsg(msg, "As vendas marcadas já estão no Bling.", "warn"); return; }
+    if (!window.confirm("Marcar " + n + (n === 1 ? " venda" : " vendas") + " como já lançadas no Bling? Use quando você lançou lá por fora (planilha ou à mão). Elas saem desta lista e não são enviadas pelo sistema.")) return;
+    try { await marcarLancadas(lista); N.setMsg(msg, n + (n === 1 ? " venda marcada como lançada" : " vendas marcadas como lançadas") + " no Bling.", "ok"); }
+    catch (error) { N.setMsg(msg, N.traduzirErro(error), "warn"); }
   });
   $("blExportClients").addEventListener("click", () => {
     const linhas = [["Nome", "CPF/CNPJ", "E-mail", "Telefone", "CEP", "Endereço", "Número", "Complemento", "Bairro", "Cidade", "UF", "Observações"]]
