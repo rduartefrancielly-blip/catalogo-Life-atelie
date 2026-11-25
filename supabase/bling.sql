@@ -40,4 +40,51 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Estoque no Bling: botão "Sincronizar agora" e sincronização automática
+-- ---------------------------------------------------------------------
+alter table public.bling_conexao add column if not exists estoque_auto       boolean not null default false;
+alter table public.bling_conexao add column if not exists estoque_chave      text;        -- chave do agendamento (só o banco e a função conhecem)
+alter table public.bling_conexao add column if not exists funcao_url         text;        -- endereço da função "bling" (a própria função grava)
+alter table public.bling_conexao add column if not exists estoque_rodando_em timestamptz; -- uma sincronização por vez
+alter table public.bling_conexao add column if not exists estoque_lido_em    timestamptz; -- quando o estoque daqui foi lido pela última vez
+alter table public.bling_conexao add column if not exists estoque_sinc_em    timestamptz; -- última sincronização que terminou
+alter table public.bling_conexao add column if not exists estoque_resumo     jsonb;       -- o que mudou e o que ficou para conferir
+
+-- Agendamento dentro do banco (pg_cron) que chama a função pela internet (pg_net)
+create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_cron with schema pg_catalog;
+
+-- A cada 5 minutos: só chama o Bling se o automático estiver ligado E
+-- (o estoque daqui mudou, ou ficou algo para a próxima, ou já faz 1 hora da última conferência).
+select cron.schedule('life-bling-estoque', '*/5 * * * *', $job$
+  select net.http_post(
+    url := c.funcao_url || '/estoque-automatico',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-life-chave', c.estoque_chave),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 15000
+  )
+  from public.bling_conexao c
+  where c.id = 1
+    and c.estoque_auto
+    and c.refresh_token is not null
+    and c.funcao_url is not null
+    and c.estoque_chave is not null
+    and (c.estoque_rodando_em is null or c.estoque_rodando_em < now() - interval '3 minutes')
+    and (
+      c.estoque_lido_em is null
+      or c.estoque_lido_em < now() - interval '1 hour'
+      or coalesce((c.estoque_resumo ->> 'faltam')::int, 0) > 0
+      or exists (select 1 from public.produtos p where p.atualizado_em > c.estoque_lido_em)
+    );
+$job$);
+
+-- A tela confere se o agendamento existe (só a função do servidor pode perguntar)
+create or replace function public.bling_estoque_agenda() returns text
+language sql stable security definer set search_path = '' as $$
+  select j.schedule from cron.job j where j.jobname = 'life-bling-estoque' limit 1;
+$$;
+revoke all on function public.bling_estoque_agenda() from public, anon, authenticated;
+grant execute on function public.bling_estoque_agenda() to service_role;
+
 select 'Bling pronto ✓' as resultado;

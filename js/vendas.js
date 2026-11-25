@@ -210,6 +210,7 @@
     document.querySelectorAll("#abas [data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === nome));
     try { sessionStorage.setItem("life-aba", nome); } catch (e) { /* sem armazenamento */ }
     if (nome === "stock" && !E.mov.length && !E.movFim) T().carregarMov(true);
+    if (nome === "stock") T().aoAbrirEstoque();
     if (nome === "home") renderHome();
     if (nome === "orcamentos" && window.LifeOrcamentos) window.LifeOrcamentos.aoAbrir();
     if (!semRolar) window.scrollTo({ top: 0 });

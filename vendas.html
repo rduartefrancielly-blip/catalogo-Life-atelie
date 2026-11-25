@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261115">
+  <link rel="stylesheet" href="css/vendas.css?v=20261125">
 </head>
 <body>
   <!-- Entrar -->
@@ -285,6 +285,30 @@
     <!-- ============ Estoque ============ -->
     <section id="panelStock" class="panel">
       <div class="summary" id="stockSummary" style="margin-top:0"></div>
+      <!-- Estoque no Bling (só a administradora) -->
+      <div class="card be-card" id="beCard" hidden>
+        <div class="be-topo">
+          <div class="be-texto">
+            <h2 class="sec-title">Estoque no Bling</h2>
+            <p class="mini-note" id="beStatus" aria-live="polite"></p>
+          </div>
+          <button type="button" class="btn" id="beSincronizar">Sincronizar agora</button>
+        </div>
+        <label class="check be-auto"><input type="checkbox" id="beAuto"> Sincronizar sozinho: a cada 5 minutos, sempre que o estoque mudar aqui</label>
+        <div class="form-msg" id="beMsg" role="status" aria-live="polite"></div>
+        <div class="be-previa" id="bePrevia" hidden>
+          <p class="mini-note" id="bePreviaTexto"></p>
+          <ul class="bl-resultados be-lista" id="bePreviaLista"></ul>
+          <div class="form-actions">
+            <button type="button" class="btn" id="beAplicar">Enviar para o Bling</button>
+            <button type="button" class="btn ghost" id="beCancelar">Cancelar</button>
+          </div>
+        </div>
+        <details class="bl-planilha" id="beUltima" hidden>
+          <summary id="beUltimaResumo">Última sincronização</summary>
+          <ul class="bl-resultados be-lista" id="beUltimaLista"></ul>
+        </details>
+      </div>
       <div class="card">
         <h2 class="sec-title">Estoque</h2>
         <p class="mini-note" style="margin-top:0">É o mesmo estoque do catálogo. Cada venda já tira daqui. Use − e + para ajustar (fica registrado no histórico) ou digite a quantidade certa. Para atualizar muita coisa de uma vez, use a lista em PDF no <a href="./admin.html">painel do catálogo</a>.</p>
@@ -456,7 +480,7 @@
               <ul>
                 <li>Nome: <b>Life Ateliê Sistema</b></li>
                 <li>Link de redirecionamento: <code id="blCallback"></code> <button type="button" class="btn ghost small" id="blCopiarCallback">Copiar</button></li>
-                <li>Permissões: <b>Contatos</b> e <b>Contatos: Gerenciar Contatos</b>, <b>Pedidos de Venda</b> e <b>Pedidos de Venda: Gerenciar Pedidos de Venda</b>, <b>Produtos</b>, <b>Formas de Pagamento</b> e <b>Vendedores</b></li>
+                <li>Permissões: <b>Contatos</b> e <b>Contatos: Gerenciar Contatos</b>, <b>Pedidos de Venda</b> e <b>Pedidos de Venda: Gerenciar Pedidos de Venda</b>, <b>Produtos</b>, <b>Formas de Pagamento</b>, <b>Vendedores</b>, <b>Estoques</b> e <b>Depósitos</b> (estes dois para o estoque ir para o Bling; marque também as de gerenciar, se aparecerem separadas)</li>
               </ul>
               Salve e guarde o <b>Client ID</b> e o <b>Client Secret</b> (não mande para ninguém, nem por mensagem).</li>
             <li><b>Função no Supabase.</b> <b>Edge Functions</b> → <b>Deploy a new function</b> → <b>Via Editor</b> → nome <code>bling</code> → apague o exemplo, <button type="button" class="btn ghost small" data-copiar-arquivo="supabase/functions/bling/index.ts">Copiar o código</button> e cole → <b>Deploy</b>. Depois, na página da função, desligue <b>Verify JWT</b> (Enforce JWT verification) e salve.</li>
@@ -569,8 +593,8 @@
   <script src="js/comum.js?v=20261022"></script>
   <script src="js/vendas-lib.js?v=20261023"></script>
   <script src="js/cliente-colar.js?v=20261113"></script>
-  <script src="js/vendas.js?v=20261115"></script>
-  <script src="js/vendas-telas.js?v=20261115"></script>
+  <script src="js/vendas.js?v=20261125"></script>
+  <script src="js/vendas-telas.js?v=20261125"></script>
   <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
   <script src="js/vendas-orcamentos.js?v=20261113c"></script>
