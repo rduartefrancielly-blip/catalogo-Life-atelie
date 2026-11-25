@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/vendas.css?v=20261125">
+  <link rel="stylesheet" href="css/vendas.css?v=20261125b">
 </head>
 <body>
   <!-- Entrar -->
@@ -287,14 +287,20 @@
       <div class="summary" id="stockSummary" style="margin-top:0"></div>
       <!-- Estoque no Bling (só a administradora) -->
       <div class="card be-card" id="beCard" hidden>
-        <div class="be-topo">
-          <div class="be-texto">
-            <h2 class="sec-title">Estoque no Bling</h2>
-            <p class="mini-note" id="beStatus" aria-live="polite"></p>
-          </div>
-          <button type="button" class="btn" id="beSincronizar">Sincronizar agora</button>
+        <h2 class="sec-title">Estoque no Bling</h2>
+        <p class="mini-note be-status" id="beStatus" aria-live="polite"></p>
+        <div class="be-botoes">
+          <button type="button" class="btn" id="beTrazer">Trazer do Bling</button>
+          <button type="button" class="btn ghost" id="beEnviar">Enviar para o Bling</button>
         </div>
-        <label class="check be-auto"><input type="checkbox" id="beAuto"> Sincronizar sozinho: a cada 5 minutos, sempre que o estoque mudar aqui</label>
+        <div class="be-auto">
+          <label class="check"><input type="checkbox" id="beAuto"> Sincronizar sozinho a cada 5 minutos</label>
+          <select id="beDirecao" aria-label="Direção do automático: quem manda no estoque">
+            <option value="trazer">Bling → sistema (o Bling manda)</option>
+            <option value="enviar">Sistema → Bling (o sistema manda)</option>
+          </select>
+        </div>
+        <div class="field-hint" id="beAutoDica" aria-live="polite"></div>
         <div class="form-msg" id="beMsg" role="status" aria-live="polite"></div>
         <div class="be-previa" id="bePrevia" hidden>
           <p class="mini-note" id="bePreviaTexto"></p>
@@ -594,7 +600,7 @@
   <script src="js/vendas-lib.js?v=20261023"></script>
   <script src="js/cliente-colar.js?v=20261113"></script>
   <script src="js/vendas.js?v=20261125"></script>
-  <script src="js/vendas-telas.js?v=20261125"></script>
+  <script src="js/vendas-telas.js?v=20261125b"></script>
   <script src="js/orcamento-lib.js?v=20261111"></script>
   <script src="js/orcamento-arte.js?v=20261106"></script>
   <script src="js/vendas-orcamentos.js?v=20261113c"></script>

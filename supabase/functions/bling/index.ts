@@ -11,8 +11,8 @@
 //   POST /clientes-bling administradora → { pagina } uma página das clientes do Bling (com endereço)
 //   POST /clientes-enviar administradora → { ids: [...] } salva no Bling as clientes daqui que ainda não estão lá
 //   POST /desconectar  administradora → apaga a conexão
-//   POST /estoque      administradora → { simular: true } mostra o que muda no estoque do Bling; sem simular, envia
-//   POST /estoque-auto administradora → { ligar: true|false } sincronização automática do estoque
+//   POST /estoque      administradora → { direcao: "trazer"|"enviar", simular: true } mostra o que muda; sem simular, grava
+//   POST /estoque-auto administradora → { ligar: true|false, direcao } sincronização automática do estoque
 //   POST /estoque-automatico  o agendamento do banco (a cada 5 min) chama aqui, com a chave guardada no banco
 //
 // Segredos (Supabase → Edge Functions → Secrets): BLING_CLIENT_ID e BLING_CLIENT_SECRET.
@@ -20,7 +20,7 @@
 // Em "Verify JWT" (Enforce JWT verification) deixe DESLIGADO: o Bling volta para /retorno sem login;
 // as outras rotas conferem o login aqui dentro.
 
-const VERSAO = "2026-11-25";
+const VERSAO = "2026-11-25b";
 const BLING_API = "https://api.bling.com.br/Api/v3";
 const BLING_OAUTH = "https://www.bling.com.br/Api/v3";
 const VOLTA_PADRAO = "https://rduartefrancielly-blip.github.io/catalogo-Life-atelie/vendas.html";
@@ -377,18 +377,22 @@ async function clientesDoBling(pagina: number): Promise<any> {
 }
 
 // ---------------------------------------------------------------------
-// Estoque: o estoque daqui vai para o Bling (botão "Sincronizar agora" e automático)
-// O sistema manda: no depósito padrão do Bling, cada produto fica com a quantidade daqui.
-// Cada diferença vira um lançamento de entrada ou de saída no Bling, com observação.
-// Produto sem controle de estoque aqui (quantidade em branco) não é mexido no Bling.
+// Estoque entre o sistema e o Bling (botões e automático), sempre no depósito padrão do Bling
+//   trazer: o Bling manda. A quantidade daqui fica igual ao saldo disponível no Bling, menos o que foi
+//           vendido aqui e ainda não foi para o Bling. Grava como "Ajuste" no histórico do estoque.
+//   enviar: o sistema manda. Cada diferença vira um lançamento de entrada ou saída no Bling, com observação.
 // ---------------------------------------------------------------------
-const ESTOQUE_TEMPO_MS = 45000; // lançamentos por chamada; o que não couber vai na próxima
+type Direcao = "trazer" | "enviar";
+const ESTOQUE_TEMPO_MS = 45000; // por chamada; o que não couber vai na próxima
 const TRAVA_MS = 3 * 60000; // uma sincronização por vez (se uma travar, libera depois disso)
+const DIAS_VENDAS_PENDENTES = 30; // vendas daqui ainda não enviadas ao Bling, que o Bling ainda não descontou
 const MSG_PERMISSAO_ESTOQUE = "O aplicativo do Bling ainda não tem as permissões de estoque. No aplicativo (Área do Integrador), marque Estoques e Depósitos " +
   "(e as de gerenciar, se aparecerem separadas), salve e toque em Conectar de novo na aba Bling e backup.";
+const MSG_SQL = "Falta atualizar o banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).";
 const ehPermissao = (e: unknown): boolean => e instanceof ErroBling && (e.status === 403 || /escopo|scope|insufficient|forbidden/i.test(e.message));
 const qtdTexto = (n: number): string => String(Math.round(n * 1000) / 1000).replace(".", ",");
 const ehSim = (v: unknown): boolean => v === true || v === 1 || v === "1" || v === "S" || v === "true";
+const direcaoDe = (v: unknown, padrao: Direcao): Direcao => (v === "trazer" || v === "enviar" ? v : padrao);
 
 async function depositoPadrao(): Promise<{ id: number; nome: string }> {
   const d = await bling("GET", "depositos?limite=100");
@@ -399,30 +403,34 @@ async function depositoPadrao(): Promise<{ id: number; nome: string }> {
   return { id: Number(dep.id), nome: String(dep.descricao || "Geral") };
 }
 
-// produtos daqui com estoque controlado, agrupados pelo código do Bling (SKU do Bling ou código do site)
-function alvosDoSistema(produtos: any[]): { alvos: any[]; repetidos: any[]; semCodigo: string[] } {
+// produtos daqui agrupados pelo código do Bling (SKU do Bling ou código do site)
+// qtd null = sem controle de estoque aqui (quantidade em branco)
+function agruparPorCodigo(produtos: any[], incluirSemControle: boolean): { alvos: any[]; repetidos: any[]; semCodigo: string[] } {
   const porCodigo = new Map<string, any>();
   const semCodigo: string[] = [];
   for (const p of produtos) {
-    const qs = (Array.isArray(p.variacoes) ? p.variacoes : [])
-      .map((v: any) => v && v.quantidade)
-      .filter((q: unknown) => q != null && String(q).trim() !== "")
-      .map(Number).filter((n: number) => Number.isFinite(n));
-    if (!qs.length) continue; // sem controle de estoque aqui: o Bling fica como está
-    const qtd = Math.max(0, qs.reduce((t: number, n: number) => t + n, 0)); // cores sem código próprio somam no mesmo código
+    const vars = Array.isArray(p.variacoes) && p.variacoes.length ? p.variacoes : [{ nome: "", quantidade: null }];
+    const qs = vars.map((v: any) => v && v.quantidade).filter((q: unknown) => q != null && String(q).trim() !== "").map(Number).filter((n: number) => Number.isFinite(n));
+    const controla = qs.length > 0;
+    if (!controla && !incluirSemControle) continue;
     const codigo = String(p.sku_bling || p.codigo || "").trim();
-    if (!codigo) { semCodigo.push(String(p.nome || "Produto")); continue; }
+    if (!codigo) { if (controla) semCodigo.push(String(p.nome || "Produto")); continue; }
     const k = codigo.toUpperCase();
     const ja = porCodigo.get(k);
-    if (ja) ja.nomes.push(p.nome); else porCodigo.set(k, { k, codigo, nome: p.nome, nomes: [p.nome], qtd });
+    if (ja) { ja.nomes.push(p.nome); continue; }
+    porCodigo.set(k, {
+      k, codigo, nome: p.nome, nomes: [p.nome], produtoId: p.id,
+      qtd: controla ? Math.max(0, qs.reduce((t: number, n: number) => t + n, 0)) : null, // cores sem código próprio somam no mesmo código
+      nVariacoes: vars.length, variacao: String((vars[0] && vars[0].nome) || "").trim(),
+    });
   }
   const todos = [...porCodigo.values()];
   return { alvos: todos.filter((a) => a.nomes.length === 1), repetidos: todos.filter((a) => a.nomes.length > 1), semCodigo };
 }
 
-// saldo físico de cada produto no depósito escolhido
-async function saldosNoDeposito(ids: number[], depId: number): Promise<Map<number, number>> {
-  const mapa = new Map<number, number>();
+// saldo de cada produto no depósito: físico (o que existe) e virtual (físico menos o reservado em pedidos em aberto)
+async function saldosNoDeposito(ids: number[], depId: number): Promise<Map<number, { fisico: number; virtual: number }>> {
+  const mapa = new Map<number, { fisico: number; virtual: number }>();
   for (let i = 0; i < ids.length; i += 50) {
     const d = await bling("GET", "estoques/saldos?" + ids.slice(i, i + 50).map((id) => "idsProdutos[]=" + id).join("&"));
     (d.data || []).forEach((s: any) => {
@@ -430,10 +438,30 @@ async function saldosNoDeposito(ids: number[], depId: number): Promise<Map<numbe
       if (!id) return;
       const deps = Array.isArray(s.depositos) ? s.depositos : [];
       const noDep = deps.find((x: any) => Number(x && x.id) === depId);
-      mapa.set(id, noDep ? Number(noDep.saldoFisico) || 0 : deps.length ? 0 : Number(s.saldoFisicoTotal) || 0);
+      let fisico = 0, virtual = 0;
+      if (noDep) { fisico = Number(noDep.saldoFisico) || 0; virtual = noDep.saldoVirtual != null ? Number(noDep.saldoVirtual) || 0 : fisico; }
+      else if (!deps.length) { fisico = Number(s.saldoFisicoTotal) || 0; virtual = s.saldoVirtualTotal != null ? Number(s.saldoVirtualTotal) || 0 : fisico; }
+      mapa.set(id, { fisico, virtual }); // com saldo só em outros depósitos: 0 neste
     });
   }
   return mapa;
+}
+
+// vendas registradas aqui (últimos dias) que ainda não foram para o Bling: o Bling ainda não descontou essas peças
+async function vendidasAquiNaoEnviadas(): Promise<{ porProduto: Map<string, number>; porCodigo: Map<string, number> }> {
+  const porProduto = new Map<string, number>(), porCodigo = new Map<string, number>();
+  const desde = new Date(Date.now() - DIAS_VENDAS_PENDENTES * 86400000).toISOString();
+  const vendas = (await db("vendas?select=id&status=eq.confirmada&bling_status=eq.nao&bling_id=is.null&criado_em=gte." + desde + "&or=(origem.is.null,origem.neq.legado)")) || [];
+  const ids = vendas.map((v: any) => v.id);
+  for (let i = 0; i < ids.length; i += 80) {
+    const itens = (await db("venda_itens?select=*&venda_id=in.(" + ids.slice(i, i + 80).join(",") + ")")) || [];
+    itens.forEach((it: any) => {
+      const q = Number(it.quantidade) || 0;
+      if (it.produto_id) porProduto.set(it.produto_id, (porProduto.get(it.produto_id) || 0) + q);
+      else if (it.codigo) { const k = String(it.codigo).trim().toUpperCase(); porCodigo.set(k, (porCodigo.get(k) || 0) + q); }
+    });
+  }
+  return { porProduto, porCodigo };
 }
 
 async function pegarTrava(): Promise<boolean> {
@@ -445,38 +473,69 @@ async function pegarTrava(): Promise<boolean> {
 }
 const soltarTrava = () => db("bling_conexao?id=eq.1", { method: "PATCH", body: { estoque_rodando_em: null }, prefer: "return=minimal" });
 
-async function estoqueParaBling(op: { origem: string; simular?: boolean }): Promise<any> {
+// quem pediu (para o histórico do estoque): o e-mail do login, já conferido como administradora
+function emailDoLogin(req: Request): string {
+  try {
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const p = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return String(p.email || "");
+  } catch (_) { return ""; }
+}
+
+async function sincronizarEstoque(op: { origem: string; direcao: Direcao; simular?: boolean; email?: string }): Promise<any> {
   const inicio = Date.now();
+  const trazer = op.direcao === "trazer";
   const c = await lerConexao();
   if (!c || !c.refresh_token) throw new ErroBling("O Bling ainda não está conectado. Toque em Conectar ao Bling.", true);
-  if (!("estoque_resumo" in c)) throw new Error("Falta atualizar o banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).");
+  if (!("estoque_direcao" in c)) throw new Error(MSG_SQL);
   const travou = op.simular ? false : await pegarTrava();
   if (!op.simular && !travou) return { ocupado: true };
   const lidoEm = new Date().toISOString();
   try {
     const dep = await depositoPadrao();
     const produtos = (await db("produtos?select=id,nome,codigo,sku_bling,variacoes&order=nome")) || [];
-    const { alvos, repetidos, semCodigo } = alvosDoSistema(produtos);
+    const { alvos, repetidos, semCodigo } = agruparPorCodigo(produtos, trazer);
     const problemas: any[] = repetidos.map((a) => ({ nome: a.nomes.join(" · "), codigo: a.codigo, motivo: "o mesmo código está em " + a.nomes.length + " produtos daqui; corrija o código para saber qual é o do Bling" }));
     const ids = await produtosPorCodigo(alvos.map((a) => a.codigo));
     const noBling = alvos.filter((a) => {
       a.id = ids.get(a.k) || 0;
-      if (!a.id) problemas.push({ nome: a.nome, codigo: a.codigo, motivo: "código não encontrado no Bling (ou o produto está inativo lá)" });
+      if (!a.id && a.qtd != null) problemas.push({ nome: a.nome, codigo: a.codigo, motivo: "código não encontrado no Bling (ou o produto está inativo lá)" });
       return !!a.id;
     });
     const saldos = await saldosNoDeposito(noBling.map((a) => a.id), dep.id);
-    noBling.forEach((a) => { a.de = saldos.get(a.id) || 0; });
-    const diferentes = noBling.filter((a) => Math.abs(a.qtd - a.de) >= 0.0005);
-    const base = { deposito: dep.nome, conferidos: alvos.length, iguais: noBling.length - diferentes.length, sem_codigo: semCodigo.slice(0, 60), total_sem_codigo: semCodigo.length };
+    let diferentes: any[] = [], iguais = 0;
+
+    if (trazer) {
+      let vendidas = { porProduto: new Map<string, number>(), porCodigo: new Map<string, number>() };
+      try { vendidas = await vendidasAquiNaoEnviadas(); }
+      catch (e) { problemas.push({ nome: "Vendas daqui", codigo: "", motivo: "não consegui conferir as vendas que ainda não foram para o Bling (" + String((e as Error).message || e).slice(0, 160) + "); o desconto delas ficou de fora" }); }
+      noBling.forEach((a) => {
+        const s = saldos.get(a.id);
+        if (!s) { if (a.qtd != null) problemas.push({ nome: a.nome, codigo: a.codigo, motivo: "o Bling não informou o saldo (o produto controla estoque lá?)" }); return; }
+        if (a.nVariacoes > 1) { problemas.push({ nome: a.nome, codigo: a.codigo, motivo: "tem " + a.nVariacoes + " cores/variações com o mesmo código; acerte à mão" }); return; }
+        const naoEnviadas = vendidas.porProduto.get(a.produtoId) || vendidas.porCodigo.get(a.k) || 0;
+        const bl = Math.round(s.virtual);
+        const para = Math.max(0, bl - naoEnviadas);
+        if (a.qtd == null && para === 0) return; // sem controle aqui e nada no Bling: fica em branco
+        if (a.qtd === para) { iguais++; return; }
+        diferentes.push({ ...a, de: a.qtd, para, bling: bl, naoEnviadas });
+      });
+    } else {
+      noBling.forEach((a) => {
+        const de = (saldos.get(a.id) || { fisico: 0 }).fisico;
+        if (Math.abs(a.qtd - de) < 0.0005) iguais++; else diferentes.push({ ...a, de, para: a.qtd });
+      });
+    }
+    const item = (a: any) => ({ nome: a.nome, codigo: a.codigo, de: a.de, para: a.para, ...(trazer ? { bling: a.bling, nao_enviadas: a.naoEnviadas } : {}) });
+    const base = { direcao: op.direcao, deposito: dep.nome, conferidos: noBling.length, iguais, sem_codigo: semCodigo.slice(0, 60), total_sem_codigo: semCodigo.length };
 
     if (op.simular) {
-      const previa = { ...base, pendentes: diferentes.map((a) => ({ nome: a.nome, codigo: a.codigo, de: a.de, para: a.qtd })), problemas };
       // nada a mudar: já conta como sincronizado
       if (!diferentes.length) {
         const resumo = { em: new Date().toISOString(), origem: op.origem, ...base, ajustados: 0, faltam: 0, ajustes: [], problemas: problemas.slice(0, 100), total_problemas: problemas.length };
         await salvarConexao({ estoque_lido_em: lidoEm, estoque_sinc_em: resumo.em, estoque_resumo: resumo });
       }
-      return { previa };
+      return { previa: { ...base, pendentes: diferentes.map(item), problemas } };
     }
 
     const ajustes: any[] = [];
@@ -484,16 +543,23 @@ async function estoqueParaBling(op: { origem: string; simular?: boolean }): Prom
     for (; k < diferentes.length; k++) {
       if (Date.now() - inicio > ESTOQUE_TEMPO_MS) break;
       const a = diferentes[k];
-      const delta = Math.round((a.qtd - a.de) * 1000) / 1000;
       try {
-        await bling("POST", "estoques", {
-          produto: { id: a.id }, deposito: { id: dep.id }, operacao: delta > 0 ? "E" : "S", quantidade: Math.abs(delta),
-          observacoes: "Sistema Life Ateliê: " + qtdTexto(a.de) + " → " + qtdTexto(a.qtd) + (op.origem === "automatico" ? " (automático)" : ""),
-        });
-        ajustes.push({ nome: a.nome, codigo: a.codigo, de: a.de, para: a.qtd });
+        if (trazer) {
+          const motivo = "Trazido do Bling" + (a.naoEnviadas ? " (Bling " + a.bling + ", menos " + a.naoEnviadas + " vendida(s) aqui e ainda não enviada(s))" : "") + (op.origem === "automatico" ? " · automático" : "");
+          await db("rpc/bling_trazer_quantidade", { method: "POST", body: { p_produto: a.produtoId, p_variacao: a.variacao, p_quantidade: a.para, p_motivo: motivo, p_email: op.email || null } });
+        } else {
+          const delta = Math.round((a.para - a.de) * 1000) / 1000;
+          await bling("POST", "estoques", {
+            produto: { id: a.id }, deposito: { id: dep.id }, operacao: delta > 0 ? "E" : "S", quantidade: Math.abs(delta),
+            observacoes: "Sistema Life Ateliê: " + qtdTexto(a.de) + " → " + qtdTexto(a.para) + (op.origem === "automatico" ? " (automático)" : ""),
+          });
+        }
+        ajustes.push(item(a));
       } catch (e) {
         if (e instanceof ErroBling && (e.reconectar || ehPermissao(e))) throw e;
-        problemas.push({ nome: a.nome, codigo: a.codigo, motivo: "o Bling recusou: " + String((e && (e as Error).message) || e) });
+        const msg = String((e && (e as Error).message) || e);
+        if (trazer && !ajustes.length) throw new Error(/bling_trazer_quantidade|PGRST202|Could not find the function/i.test(msg) ? MSG_SQL : "O banco não aceitou a quantidade: " + msg);
+        problemas.push({ nome: a.nome, codigo: a.codigo, motivo: (trazer ? "o banco não aceitou: " : "o Bling recusou: ") + msg });
       }
     }
     const resumo = {
@@ -505,8 +571,8 @@ async function estoqueParaBling(op: { origem: string; simular?: boolean }): Prom
   } catch (e) {
     const erro = ehPermissao(e) ? new ErroBling(MSG_PERMISSAO_ESTOQUE, false, 403) : e;
     if (!op.simular) {
-      // guarda o motivo (aparece na tela) e só tenta de novo quando o estoque mudar ou depois de 1 hora
-      try { await salvarConexao({ estoque_lido_em: lidoEm, estoque_resumo: { em: new Date().toISOString(), origem: op.origem, erro: String((erro && (erro as Error).message) || erro) } }); } catch (_) { /* segue */ }
+      // guarda o motivo (aparece na tela); o automático tenta de novo mais tarde
+      try { await salvarConexao({ estoque_lido_em: lidoEm, estoque_resumo: { em: new Date().toISOString(), origem: op.origem, direcao: op.direcao, erro: String((erro && (erro as Error).message) || erro) } }); } catch (_) { /* segue */ }
     }
     throw erro;
   } finally {
@@ -519,8 +585,8 @@ async function estadoEstoque(c?: any): Promise<any> {
   let agenda: string | null = null;
   try { agenda = (await db("rpc/bling_estoque_agenda", { method: "POST", body: {} })) || null; } catch (_) { agenda = null; }
   return {
-    banco: !c || "estoque_resumo" in c, // false = falta rodar o SQL novo
-    auto: !!(c && c.estoque_auto), agenda,
+    banco: !c || "estoque_direcao" in c, // false = falta rodar o SQL novo
+    auto: !!(c && c.estoque_auto), direcao: direcaoDe(c && c.estoque_direcao, "trazer"), agenda,
     sinc_em: (c && c.estoque_sinc_em) || null, resumo: (c && c.estoque_resumo) || null,
     rodando: !!(c && c.estoque_rodando_em && Date.now() - new Date(c.estoque_rodando_em).getTime() < TRAVA_MS),
   };
@@ -569,7 +635,7 @@ export async function atender(req: Request): Promise<Response> {
       const c = await lerConexao();
       if (!c || !mesmaChave(req.headers.get("x-life-chave") || "", String(c.estoque_chave || ""))) return resposta({ erro: "Sem permissão." }, 403);
       if (!c.estoque_auto) return resposta({ ok: true, desligado: true });
-      const tarefa = estoqueParaBling({ origem: "automatico" }).catch(() => null); // o motivo de uma falha fica guardado no banco
+      const tarefa = sincronizarEstoque({ origem: "automatico", direcao: direcaoDe(c.estoque_direcao, "trazer") }).catch(() => null); // o motivo de uma falha fica guardado no banco
       const rt = (globalThis as any).EdgeRuntime;
       if (rt && typeof rt.waitUntil === "function") { rt.waitUntil(tarefa); return resposta({ ok: true, rodando: true }, 202); }
       await tarefa;
@@ -590,14 +656,15 @@ export async function atender(req: Request): Promise<Response> {
     }
     if (acao === "estoque" && req.method === "POST") {
       const corpo: any = await req.json().catch(() => ({}));
-      const r = await estoqueParaBling({ origem: "botao", simular: !!corpo.simular });
+      const r = await sincronizarEstoque({ origem: "botao", direcao: direcaoDe(corpo.direcao, "enviar"), simular: !!corpo.simular, email: emailDoLogin(req) });
       return resposta({ ...r, estoque: await estadoEstoque() });
     }
     if (acao === "estoque-auto" && req.method === "POST") {
       const corpo: any = await req.json().catch(() => ({}));
       const c = await lerConexao();
-      if (c && !("estoque_auto" in c)) return resposta({ erro: "Falta atualizar o banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1)." }, 400);
+      if (c && !("estoque_direcao" in c)) return resposta({ erro: MSG_SQL }, 400);
       const dados: Record<string, unknown> = { estoque_auto: !!corpo.ligar, funcao_url: supaUrl() + "/functions/v1/bling" };
+      if (corpo.direcao === "trazer" || corpo.direcao === "enviar") dados.estoque_direcao = corpo.direcao;
       if (corpo.ligar && !(c && c.estoque_chave)) dados.estoque_chave = codigoAleatorio();
       await salvarConexao(dados);
       return resposta({ ok: true, estoque: await estadoEstoque() });

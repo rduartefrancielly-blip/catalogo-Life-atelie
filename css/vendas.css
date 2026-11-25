@@ -638,11 +638,13 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 
 /* Estoque: sincronizar com o Bling */
 .be-card{margin-bottom:16px;}
-.be-topo{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between;}
-.be-texto{flex:1 1 240px;min-width:0;}
-.be-texto .sec-title{margin:0;}
-.be-texto .mini-note{margin-top:4px;}
-.be-auto{margin:12px 0 0;}
+.be-card .sec-title{margin:0;}
+.be-status{margin-top:4px;}
+.be-status .warn{color:var(--danger);}
+.be-botoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.be-auto{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:14px;}
+.be-auto .check{margin:0;}
+.be-auto select{width:auto;flex:0 1 300px;}
 .be-previa{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
 .be-previa .mini-note{margin-top:0;}
 .be-lista{max-height:340px;overflow:auto;}
@@ -666,3 +668,5 @@ dialog.orc-janela{width:min(720px,calc(100% - 16px));padding:18px;}
 .bl-card .tc-main .sub.bl-aviso{color:var(--danger);}
 .bl-card .bl-valor{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto;}
 #blLista{margin-top:4px;}
+.be-lista .mini{color:var(--ink-soft);font-size:0.8rem;}
+.be-lista li.warn .mini{color:inherit;}

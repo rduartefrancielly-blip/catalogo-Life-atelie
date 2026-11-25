@@ -619,44 +619,60 @@
   });
 
   // =====================================================================
-  // ESTOQUE NO BLING (aba Estoque) · o estoque daqui vai para o Bling
-  // Botão: confere o que muda, você confirma e só então envia. Automático: a cada 5 minutos, quando o estoque muda aqui.
+  // ESTOQUE NO BLING (aba Estoque) · trazer o estoque do Bling ou enviar o daqui
+  // Botões: conferem o que muda, você confirma e só então grava. Automático: a cada 5 minutos, na direção escolhida.
   // =====================================================================
-  const ESTOQUE_VERSAO = "2026-11-25"; // função "bling" que já sincroniza o estoque
-  const BE = { rodando: false, salvandoAuto: false, previa: null, statusEm: 0 };
-  const qtdTxt = (n) => String(Math.round(Number(n || 0) * 1000) / 1000).replace(".", ",");
+  const ESTOQUE_VERSAO = "2026-11-25b"; // função "bling" que já sincroniza o estoque nas duas direções
+  const BE = { rodando: null, salvandoAuto: false, autoPedido: false, direcao: null, previa: null, statusEm: 0 };
+  const DIR = {
+    trazer: { seta: "Bling → sistema", botao: "Trazer do Bling", feito: ["produto atualizado aqui", "produtos atualizados aqui"] },
+    enviar: { seta: "sistema → Bling", botao: "Enviar para o Bling", feito: ["produto ajustado no Bling", "produtos ajustados no Bling"] },
+  };
+  const qtdTxt = (n) => (n == null ? "em branco" : String(Math.round(Number(n) * 1000) / 1000).replace(".", ","));
   const plural = (n, um, varios) => n + " " + (n === 1 ? um : varios);
   const estoqueDoStatus = () => (BL.status && BL.status.estoque) || null;
+  const direcaoDoResumo = (r) => (r && r.direcao) || "enviar"; // a primeira versão só enviava
   function estoquePronto() {
     const s = BL.status, e = estoqueDoStatus();
     return !!(s && !s.semFuncao && !s.erro && String(s.versao || "") >= ESTOQUE_VERSAO && s.conectado && e && e.banco !== false);
   }
+  // direção mostrada no seletor: a salva quando o automático está ligado; senão, a que você escolheu agora
+  function direcaoAtual() {
+    const e = estoqueDoStatus();
+    if (BE.salvandoAuto) return BE.direcao;
+    if (e && e.auto) return e.direcao || "trazer";
+    return BE.direcao || (e && e.direcao) || "trazer";
+  }
+  // o automático só liga depois de uma sincronização pelo botão na mesma direção (você conferiu o que muda)
+  const podeLigar = (dir) => { const e = estoqueDoStatus(), r = e && e.resumo; return !!(r && !r.erro && direcaoDoResumo(r) === dir); };
   function textoStatusEstoque() {
     const s = BL.status, e = estoqueDoStatus();
     if (!s) return "Conferindo a ligação com o Bling…";
     if (s.semFuncao) return 'A ligação com o Bling ainda não foi instalada: veja o passo a passo na aba <b>Bling e backup</b>.';
     if (s.erro) return esc(s.erro);
-    if (String(s.versao || "") < ESTOQUE_VERSAO) return 'Para o estoque ir para o Bling, atualize a ligação: aba <b>Bling e backup</b> → passo a passo → rode o <b>SQL</b> de novo (passo 1) e cole o <b>código novo</b> da função (passo 3).';
+    if (String(s.versao || "") < ESTOQUE_VERSAO) return 'Para o estoque passar entre o sistema e o Bling, atualize a ligação: aba <b>Bling e backup</b> → passo a passo → rode o <b>SQL</b> de novo (passo 1) e cole o <b>código novo</b> da função (passo 3).';
     if (!s.conectado) return 'O Bling não está conectado. Conecte na aba <b>Bling e backup</b>.';
     if (!e || e.banco === false) return 'Falta rodar o SQL do Bling de novo: aba <b>Bling e backup</b> → passo a passo → passo 1.';
     const r = e.resumo;
-    let t = e.sinc_em ? "Última sincronização: " + esc(N.dataHora(e.sinc_em)) + (r && !r.erro && r.origem === "automatico" ? " (automática)" : "") + "."
-      : "Ainda não sincronizado. Toque em <b>Sincronizar agora</b>: você confere o que vai mudar no Bling antes de enviar.";
+    let t = e.sinc_em && r && !r.erro ? "Última sincronização (" + DIR[direcaoDoResumo(r)].seta + "): " + esc(N.dataHora(e.sinc_em)) + (r.origem === "automatico" ? ", automática" : "") + "."
+      : e.sinc_em ? "Última sincronização: " + esc(N.dataHora(e.sinc_em)) + "."
+      : "Ainda não sincronizado. Use <b>Trazer do Bling</b> ou <b>Enviar para o Bling</b>: você confere o que vai mudar antes de gravar.";
     if (r && r.erro) t += ' <span class="warn">A última tentativa' + (r.origem === "automatico" ? " automática" : "") + " (" + esc(N.dataHora(r.em)) + ") não foi: " + esc(r.erro) + "</span>";
-    if (e.auto) t += e.agenda ? " Automático ligado ✓" : ' <span class="warn">O automático está ligado, mas o agendamento não existe no banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).</span>';
-    else if (e.sinc_em) t += " Automático desligado.";
+    if (e.auto) t += e.agenda ? " Automático ligado (" + DIR[e.direcao || "trazer"].seta + ") ✓" : ' <span class="warn">O automático está ligado, mas o agendamento não existe no banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).</span>';
     return t;
   }
   const liProblema = (p) => '<li class="warn">' + esc(p.nome || "Produto") + (p.codigo ? " (" + esc(p.codigo) + ")" : "") + ": " + esc(p.motivo || "") + "</li>";
-  const liSemCodigo = (r) => r.total_sem_codigo ? '<li class="warn">' + plural(r.total_sem_codigo, "produto com estoque e sem código (não vai", "produtos com estoque e sem código (não vão") + " para o Bling): " +
+  const liSemCodigo = (r) => r.total_sem_codigo ? '<li class="warn">' + plural(r.total_sem_codigo, "produto com estoque e sem código (não entra", "produtos com estoque e sem código (não entram") + "): " +
     esc((r.sem_codigo || []).join(", ")) + (r.total_sem_codigo > (r.sem_codigo || []).length ? "…" : "") + "</li>" : "";
-  const liMudanca = (a, cls) => '<li' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(a.nome) + (a.codigo ? " (" + esc(a.codigo) + ")" : "") + ': <span class="qtd">' + qtdTxt(a.de) + " → " + qtdTxt(a.para) + "</span></li>";
+  const liMudanca = (a, cls) => "<li" + (cls ? ' class="' + cls + '"' : "") + ">" + esc(a.nome) + (a.codigo ? " (" + esc(a.codigo) + ")" : "") + ': <span class="qtd">' + qtdTxt(a.de) + " → " + qtdTxt(a.para) + "</span>" +
+    (a.nao_enviadas ? ' <span class="mini">· Bling ' + qtdTxt(a.bling) + ", menos " + plural(a.nao_enviadas, "vendida aqui e ainda não enviada ao Bling", "vendidas aqui e ainda não enviadas ao Bling") + "</span>" : "") + "</li>";
+  const nAvisos = (r) => (r.total_problemas != null ? r.total_problemas : (r.problemas || []).length) + (r.total_sem_codigo ? 1 : 0);
   function desenharUltimaEstoque(r) {
     const box = $("beUltima");
     box.hidden = !r || !!r.erro || BE.previa != null;
     if (box.hidden) return;
-    const np = (r.total_problemas || 0) + (r.total_sem_codigo ? 1 : 0);
-    $("beUltimaResumo").textContent = "Última sincronização: " + plural(r.ajustados || 0, "produto ajustado", "produtos ajustados") + " no Bling · " + plural(r.iguais || 0, "já igual", "já iguais") +
+    const d = DIR[direcaoDoResumo(r)], np = nAvisos(r);
+    $("beUltimaResumo").textContent = "Última sincronização (" + d.seta + "): " + plural(r.ajustados || 0, d.feito[0], d.feito[1]) + " · " + plural(r.iguais || 0, "já igual", "já iguais") +
       (np ? " · " + plural(np, "aviso", "avisos") : "") + (r.faltam ? " · " + plural(r.faltam, "ficou", "ficaram") + " para a próxima" : "");
     $("beUltimaLista").innerHTML = (r.problemas || []).map(liProblema).join("") + liSemCodigo(r) + (r.ajustes || []).map((a) => liMudanca(a, "ok")).join("");
   }
@@ -664,91 +680,107 @@
     const card = $("beCard");
     card.hidden = !N.ehAdmin();
     if (card.hidden) return;
-    const e = estoqueDoStatus(), pronto = estoquePronto();
+    const e = estoqueDoStatus(), pronto = estoquePronto(), dir = direcaoAtual();
     $("beStatus").innerHTML = textoStatusEstoque();
-    const bt = $("beSincronizar");
-    bt.disabled = !pronto || BE.rodando || BE.previa != null;
-    bt.textContent = BE.rodando ? "Conferindo…" : "Sincronizar agora";
-    const auto = $("beAuto");
+    ["trazer", "enviar"].forEach((d) => {
+      const b = $(d === "trazer" ? "beTrazer" : "beEnviar");
+      b.disabled = !pronto || !!BE.rodando || BE.previa != null;
+      b.textContent = BE.rodando === d ? "Conferindo…" : DIR[d].botao;
+    });
+    const auto = $("beAuto"), sel = $("beDirecao");
     auto.checked = BE.salvandoAuto ? BE.autoPedido : !!(e && e.auto); // enquanto salva, mostra o que você escolheu
-    // a primeira vez é pelo botão, conferindo; depois o automático pode ser ligado
-    auto.disabled = !pronto || BE.salvandoAuto || (!auto.checked && !(e && e.sinc_em));
-    auto.parentElement.title = pronto && !auto.checked && !(e && e.sinc_em) ? "Sincronize uma vez pelo botão para conferir; depois ligue o automático." : "";
+    sel.value = dir;
+    sel.disabled = !pronto || BE.salvandoAuto || auto.checked;
+    auto.disabled = !pronto || BE.salvandoAuto || (!auto.checked && !podeLigar(dir));
+    $("beAutoDica").textContent = !pronto ? "" : auto.checked ? "Para mudar a direção, desligue o automático."
+      : !podeLigar(dir) ? "Para ligar nessa direção, use antes uma vez o botão \"" + DIR[dir].botao + "\" (você confere o que muda)." : "";
     desenharUltimaEstoque(e && e.resumo);
   }
   function desenharPrevia() {
     const p = BE.previa, box = $("bePrevia");
     box.hidden = !p;
     if (!p) return;
-    const n = p.pendentes.length, np = p.problemas.length + (p.total_sem_codigo ? 1 : 0);
-    $("bePreviaTexto").innerHTML = "<b>" + plural(n, "produto vai mudar", "produtos vão mudar") + "</b> no Bling (depósito " + esc(p.deposito) + "), " + plural(p.iguais, "já está igual", "já estão iguais") + "." +
-      (np ? " " + plural(np, "aviso", "avisos") + " abaixo." : "") + " Se algum número estiver errado, corrija aqui no estoque antes de enviar: o Bling fica igual ao estoque daqui.";
+    const n = p.pendentes.length, np = nAvisos(p), trazer = p.direcao === "trazer";
+    $("bePreviaTexto").innerHTML = trazer
+      ? "<b>" + plural(n, "produto vai mudar", "produtos vão mudar") + " aqui no sistema</b>, com o estoque do Bling (depósito " + esc(p.deposito) + "); " + plural(p.iguais, "já está igual", "já estão iguais") + "." +
+        (np ? " " + plural(np, "aviso", "avisos") + " abaixo." : "") + " Vale o disponível no Bling, menos o que foi vendido aqui e ainda não foi para o Bling. Se algum número estiver errado no Bling, corrija lá antes."
+      : "<b>" + plural(n, "produto vai mudar", "produtos vão mudar") + " no Bling</b> (depósito " + esc(p.deposito) + "); " + plural(p.iguais, "já está igual", "já estão iguais") + "." +
+        (np ? " " + plural(np, "aviso", "avisos") + " abaixo." : "") + " Se algum número estiver errado, corrija aqui no estoque antes de enviar: o Bling fica igual ao estoque daqui.";
     $("bePreviaLista").innerHTML = p.pendentes.map((a) => liMudanca(a, "")).join("") + p.problemas.map(liProblema).join("") + liSemCodigo(p);
-    $("beAplicar").textContent = "Enviar " + plural(n, "ajuste", "ajustes") + " para o Bling";
-    $("beAplicar").disabled = BE.rodando;
-    $("beCancelar").disabled = BE.rodando;
+    $("beAplicar").textContent = trazer ? "Atualizar " + plural(n, "produto", "produtos") + " aqui" : "Enviar " + plural(n, "ajuste", "ajustes") + " para o Bling";
+    $("beAplicar").disabled = !!BE.rodando;
+    $("beCancelar").disabled = !!BE.rodando;
   }
   const explicarErro = (d) => d.semFuncao ? "A função do Bling não respondeu. Confira a aba Bling e backup." : d.erro || "Não deu certo. Tente de novo.";
   function guardarEstoque(d) {
     if (d && d.estoque) BL.status = Object.assign({}, BL.status, { estoque: d.estoque });
     if (d && d.reconectar) BL.status = Object.assign({}, BL.status, { conectado: false });
   }
-  $("beSincronizar").addEventListener("click", async () => {
+  async function conferirEstoque(dir) {
     if (BE.rodando) return;
-    BE.rodando = true; desenharEstoqueBling();
+    BE.rodando = dir; desenharEstoqueBling();
     const msg = $("beMsg");
     N.setMsg(msg, "Conferindo o estoque do Bling…");
-    const d = await chamarBling("estoque", { simular: true });
-    BE.rodando = false;
+    const d = await chamarBling("estoque", { direcao: dir, simular: true });
+    BE.rodando = null;
     guardarEstoque(d);
     if (d.erro || d.semFuncao || !d.previa) { N.setMsg(msg, explicarErro(d), "warn"); desenharEstoqueBling(); return; }
     if (!d.previa.pendentes.length) {
-      const np = d.previa.problemas.length + (d.previa.total_sem_codigo ? 1 : 0);
-      N.setMsg(msg, "O Bling já está igual ao estoque daqui ✓" + (np ? " Veja os avisos em \"Última sincronização\"." : ""), "ok");
+      N.setMsg(msg, (dir === "trazer" ? "O estoque daqui já está igual ao do Bling ✓" : "O Bling já está igual ao estoque daqui ✓") + (nAvisos(d.previa) ? " Veja os avisos em \"Última sincronização\"." : ""), "ok");
       desenharEstoqueBling(); return;
     }
     N.setMsg(msg, "");
-    BE.previa = d.previa;
+    BE.previa = Object.assign({ direcao: dir }, d.previa);
     desenharEstoqueBling(); desenharPrevia();
-  });
+  }
+  $("beTrazer").addEventListener("click", () => conferirEstoque("trazer"));
+  $("beEnviar").addEventListener("click", () => conferirEstoque("enviar"));
   $("beCancelar").addEventListener("click", () => {
     BE.previa = null; desenharPrevia(); desenharEstoqueBling();
-    N.setMsg($("beMsg"), "Nada foi enviado ao Bling.");
+    N.setMsg($("beMsg"), "Nada foi gravado.");
   });
   $("beAplicar").addEventListener("click", async () => {
     if (BE.rodando || !BE.previa) return;
-    BE.rodando = true; desenharPrevia(); desenharEstoqueBling();
+    const dir = BE.previa.direcao, trazer = dir === "trazer";
+    BE.rodando = dir; desenharPrevia(); desenharEstoqueBling();
     const msg = $("beMsg");
-    let ajustados = 0, d = {};
+    let feitos = 0, d = {};
     for (let volta = 0; volta < 8; volta++) {
-      N.setMsg(msg, "Enviando para o Bling… " + (ajustados ? ajustados + " até agora " : "") + "(deixe esta tela aberta)");
-      d = await chamarBling("estoque", {});
+      N.setMsg(msg, (trazer ? "Atualizando o estoque daqui… " : "Enviando para o Bling… ") + (feitos ? feitos + " até agora " : "") + "(deixe esta tela aberta)");
+      d = await chamarBling("estoque", { direcao: dir });
       guardarEstoque(d);
       if (d.ocupado) { N.setMsg(msg, "O automático está sincronizando agora. Espere uns segundos…"); await new Promise((ok) => setTimeout(ok, 8000)); continue; }
       if (d.erro || d.semFuncao || !d.resumo) break;
-      ajustados += d.resumo.ajustados || 0;
+      feitos += d.resumo.ajustados || 0;
       if (!d.resumo.faltam) break;
     }
-    BE.rodando = false; BE.previa = null;
+    BE.rodando = null; BE.previa = null;
+    if (trazer && feitos) {
+      await N.recarregar(["produtos"]); N.renderTudo();
+      if (E.mov.length || E.movFim) carregarMov(true);
+    }
     desenharPrevia(); desenharEstoqueBling();
-    if (d.erro || d.semFuncao) { N.setMsg(msg, (ajustados ? plural(ajustados, "produto ajustado", "produtos ajustados") + " no Bling, mas parou: " : "") + explicarErro(d), "warn"); return; }
-    if (d.ocupado) { N.setMsg(msg, "O Bling está ocupado com a sincronização automática. Tente de novo em 1 minuto.", "warn"); return; }
-    const r = d.resumo || {}, avisos = (r.total_problemas || 0) + (r.total_sem_codigo ? 1 : 0);
-    N.setMsg(msg, "Pronto: " + plural(ajustados, "produto ajustado", "produtos ajustados") + " no Bling ✓" +
-      (r.faltam ? " Ainda " + plural(r.faltam, "falta", "faltam") + ": toque em Sincronizar agora de novo." : "") +
+    const feito = plural(feitos, DIR[dir].feito[0], DIR[dir].feito[1]);
+    if (d.erro || d.semFuncao) { N.setMsg(msg, (feitos ? feito + ", mas parou: " : "") + explicarErro(d), "warn"); return; }
+    if (d.ocupado) { N.setMsg(msg, "O automático está sincronizando agora. Tente de novo em 1 minuto.", "warn"); return; }
+    const r = d.resumo || {}, avisos = nAvisos(r);
+    N.setMsg(msg, "Pronto: " + feito + " ✓" + (r.faltam ? " Ainda " + plural(r.faltam, "falta", "faltam") + ": toque no botão de novo." : "") +
       (avisos ? " Confira os avisos em \"Última sincronização\"." : ""), r.faltam || avisos ? "warn" : "ok");
     if (avisos) $("beUltima").open = true;
   });
+  $("beDirecao").addEventListener("change", (ev) => { BE.direcao = ev.target.value; desenharEstoqueBling(); });
   $("beAuto").addEventListener("change", async (ev) => {
-    const ligar = ev.target.checked;
-    BE.salvandoAuto = true; BE.autoPedido = ligar; desenharEstoqueBling();
-    const d = await chamarBling("estoque-auto", { ligar });
+    const ligar = ev.target.checked, dir = direcaoAtual();
+    BE.salvandoAuto = true; BE.autoPedido = ligar; BE.direcao = dir; desenharEstoqueBling();
+    const d = await chamarBling("estoque-auto", { ligar, direcao: dir });
     BE.salvandoAuto = false;
     guardarEstoque(d);
     if (d.erro || d.semFuncao) N.setMsg($("beMsg"), explicarErro(d), "warn");
-    else if (!ligar) N.setMsg($("beMsg"), "Automático desligado. Use o botão Sincronizar agora quando quiser.", "ok");
-    else if (d.estoque && d.estoque.agenda) N.setMsg($("beMsg"), "Automático ligado ✓ A cada 5 minutos, quando o estoque mudar aqui (venda, − e +, lista em PDF), o Bling é atualizado. Uma vez por hora ele confere tudo.", "ok");
-    else N.setMsg($("beMsg"), "Automático ligado, mas o agendamento ainda não existe no banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).", "warn");
+    else if (!ligar) N.setMsg($("beMsg"), "Automático desligado. Use os botões quando quiser.", "ok");
+    else if (!(d.estoque && d.estoque.agenda)) N.setMsg($("beMsg"), "Automático ligado, mas o agendamento ainda não existe no banco: rode o SQL do Bling de novo (aba Bling e backup, passo 1).", "warn");
+    else N.setMsg($("beMsg"), dir === "trazer"
+      ? "Automático ligado ✓ A cada 5 minutos, o estoque daqui fica igual ao do Bling (descontando as vendas daqui que ainda não foram para o Bling)."
+      : "Automático ligado ✓ A cada 5 minutos, quando o estoque mudar aqui (venda, − e +, lista em PDF), o Bling é atualizado. Uma vez por hora ele confere tudo.", "ok");
     desenharEstoqueBling();
   });
   // ao abrir a aba Estoque: atualiza a situação (o automático pode ter rodado)

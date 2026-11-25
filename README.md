@@ -61,16 +61,15 @@ O Client Secret fica só no Supabase, nunca no site. Se a função publicada for
 
 ### Estoque no Bling
 
-Na aba **Estoque**, o cartão **Estoque no Bling** (só a administradora) deixa o estoque do Bling igual ao daqui. Quem manda é o sistema: no depósito padrão do Bling, cada produto fica com a quantidade daqui.
+Na aba **Estoque**, o cartão **Estoque no Bling** (só a administradora) passa o estoque entre o sistema e o Bling, no depósito padrão do Bling. Os dois botões mostram antes o que vai mudar e os avisos. Só gravam quando você confirma.
 
-- **Sincronizar agora:** mostra antes o que vai mudar (ex.: "Alice Caramelo (BL01): 5 → 3") e os avisos. Só envia quando você toca em **Enviar para o Bling**. Se algum número estiver errado, corrija aqui no estoque antes.
-- **Sincronizar sozinho:** a cada 5 minutos, se o estoque mudou aqui (venda, − e +, lista em PDF), o Bling é atualizado. Uma vez por hora ele confere tudo, para corrigir o que mudou direto no Bling. Fica liberado depois da primeira sincronização pelo botão.
-- Cada diferença vira um lançamento de **entrada** ou **saída** no Bling, com a observação "Sistema Life Ateliê: 5 → 3". Fica no histórico do produto lá.
-- Produto com quantidade **em branco** aqui (sem controle) não é mexido no Bling.
-- O produto é ligado pelo código (SKU do Bling ou código do site), igual aos pedidos. Os avisos mostram o que não foi: produto sem código, código que não existe no Bling, o mesmo código em dois produtos daqui, ou o motivo que o Bling deu.
-- Atenção: o que for lançado direto no Bling (uma venda do site, por exemplo) é desfeito na próxima sincronização, porque o Bling volta a ficar igual ao estoque daqui.
+- **Trazer do Bling** (o Bling manda): a quantidade daqui fica igual ao **disponível no Bling**, menos o que foi vendido aqui e ainda não foi para o Bling (vendas dos últimos 30 dias que estão em "Ainda não foram para o Bling"). Assim uma venda feita aqui não "volta" para o estoque antes de ir para o Bling. Fica no histórico do estoque como **Ajuste** ("Trazido do Bling"). Produto com quantidade em branco aqui só passa a ter controle se o Bling tiver saldo.
+- **Enviar para o Bling** (o sistema manda): o Bling fica com a quantidade daqui. Cada diferença vira um lançamento de **entrada** ou **saída** lá, com a observação "Sistema Life Ateliê: 5 → 3". Produto com quantidade em branco aqui não é mexido.
+- **Sincronizar sozinho:** escolha a direção (**Bling → sistema** ou **sistema → Bling**) e ligue. A cada 5 minutos ele faz o mesmo que o botão, sem pedir confirmação. Na direção sistema → Bling, só quando o estoque mudou aqui (e uma vez por hora confere tudo). Para ligar, use antes o botão da mesma direção uma vez. Para mudar a direção, desligue e ligue de novo.
+- Os produtos são ligados pelo código (SKU do Bling ou código do site), igual aos pedidos. Os avisos mostram o que não foi: produto sem código, código que não existe no Bling, o mesmo código em dois produtos daqui, produto com várias cores no mesmo código (acerte à mão), ou o motivo que o Bling deu.
+- Escolha um lado para mandar. Com o automático em Bling → sistema, o que você mudar aqui com − e + volta para o número do Bling em até 5 minutos. Ajuste no Bling. Em sistema → Bling, o que mudar direto no Bling é desfeito.
 
-**Para ligar (uma vez só):** rode de novo [`supabase/bling.sql`](supabase/bling.sql) (ele cria o agendamento a cada 5 minutos), cole o código novo da função `bling` (versão 2026-11-25 ou mais nova), adicione as permissões **Estoques** e **Depósitos** no aplicativo do Bling e toque em **Conectar de novo**.
+**Para ligar (uma vez só):** rode de novo [`supabase/bling.sql`](supabase/bling.sql) (ele cria o agendamento a cada 5 minutos e a gravação no histórico), cole o código novo da função `bling` (versão 2026-11-25b ou mais nova), adicione as permissões **Estoques** e **Depósitos** no aplicativo do Bling e toque em **Conectar de novo**.
 
 ### Importar clientes do Bling
 

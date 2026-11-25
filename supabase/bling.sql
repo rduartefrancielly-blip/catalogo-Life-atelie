@@ -41,7 +41,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- Estoque no Bling: botão "Sincronizar agora" e sincronização automática
+-- Estoque entre o sistema e o Bling: botões "Trazer do Bling" / "Enviar para o Bling" e automático
 -- ---------------------------------------------------------------------
 alter table public.bling_conexao add column if not exists estoque_auto       boolean not null default false;
 alter table public.bling_conexao add column if not exists estoque_chave      text;        -- chave do agendamento (só o banco e a função conhecem)
@@ -50,13 +50,22 @@ alter table public.bling_conexao add column if not exists estoque_rodando_em tim
 alter table public.bling_conexao add column if not exists estoque_lido_em    timestamptz; -- quando o estoque daqui foi lido pela última vez
 alter table public.bling_conexao add column if not exists estoque_sinc_em    timestamptz; -- última sincronização que terminou
 alter table public.bling_conexao add column if not exists estoque_resumo     jsonb;       -- o que mudou e o que ficou para conferir
+-- quem manda no automático: 'trazer' (o Bling manda, o estoque vem para cá) ou 'enviar' (o sistema manda)
+alter table public.bling_conexao add column if not exists estoque_direcao    text not null default 'trazer';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'bling_conexao_estoque_direcao_ok') then
+    alter table public.bling_conexao add constraint bling_conexao_estoque_direcao_ok check (estoque_direcao in ('trazer', 'enviar'));
+  end if;
+end $$;
 
 -- Agendamento dentro do banco (pg_cron) que chama a função pela internet (pg_net)
 create extension if not exists pg_net with schema extensions;
 create extension if not exists pg_cron with schema pg_catalog;
 
--- A cada 5 minutos: só chama o Bling se o automático estiver ligado E
--- (o estoque daqui mudou, ou ficou algo para a próxima, ou já faz 1 hora da última conferência).
+-- A cada 5 minutos, com o automático ligado:
+--   trazer (o Bling manda): confere o Bling toda vez (se a última deu erro, espera 1 hora para tentar de novo);
+--   enviar (o sistema manda): só quando o estoque daqui mudou, ou ficou algo para a próxima, ou já faz 1 hora.
 select cron.schedule('life-bling-estoque', '*/5 * * * *', $job$
   select net.http_post(
     url := c.funcao_url || '/estoque-automatico',
@@ -75,7 +84,8 @@ select cron.schedule('life-bling-estoque', '*/5 * * * *', $job$
       c.estoque_lido_em is null
       or c.estoque_lido_em < now() - interval '1 hour'
       or coalesce((c.estoque_resumo ->> 'faltam')::int, 0) > 0
-      or exists (select 1 from public.produtos p where p.atualizado_em > c.estoque_lido_em)
+      or (c.estoque_direcao = 'trazer' and (c.estoque_resumo ->> 'erro') is null)
+      or (c.estoque_direcao = 'enviar' and exists (select 1 from public.produtos p where p.atualizado_em > c.estoque_lido_em))
     );
 $job$);
 
@@ -86,5 +96,30 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function public.bling_estoque_agenda() from public, anon, authenticated;
 grant execute on function public.bling_estoque_agenda() to service_role;
+
+-- Trazer do Bling: grava a quantidade como um "Ajuste" do estoque, pelo mesmo caminho dos botões − e +
+-- (ajustar_estoque), em nome da administradora, para ficar no histórico. Só a função do servidor pode chamar.
+create or replace function public.bling_trazer_quantidade(p_produto uuid, p_variacao text, p_quantidade integer, p_motivo text, p_email text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_email text;
+  v_id    uuid;
+begin
+  select trim(a.email) into v_email from public.admins a
+   where p_email is not null and lower(trim(a.email)) = lower(trim(p_email)) limit 1;
+  if v_email is null then
+    select trim(a.email) into v_email from public.admins a order by a.email limit 1;
+  end if;
+  if v_email is null then raise exception 'Nenhuma administradora cadastrada (tabela admins).'; end if;
+  select u.id into v_id from auth.users u where lower(u.email) = lower(v_email) limit 1;
+  -- age como a administradora logada (as regras do estoque conferem o login por estes dados)
+  perform set_config('request.jwt.claims', json_build_object('email', v_email, 'sub', v_id, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.email', v_email, true);
+  perform set_config('request.jwt.claim.sub', coalesce(v_id::text, ''), true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform public.ajustar_estoque(p_produto => p_produto, p_variacao => coalesce(p_variacao, ''), p_tipo => 'ajuste', p_quantidade => p_quantidade, p_motivo => p_motivo);
+end $$;
+revoke all on function public.bling_trazer_quantidade(uuid, text, integer, text, text) from public, anon, authenticated;
+grant execute on function public.bling_trazer_quantidade(uuid, text, integer, text, text) to service_role;
 
 select 'Bling pronto ✓' as resultado;
